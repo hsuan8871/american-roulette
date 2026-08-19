@@ -253,6 +253,14 @@
     font-size:12px; color:#c6c6c6; line-height:1.6;
   }
   .odds-ev b{ color:#fff; font-size:13px; }
+  .risk-box{
+    margin-top:13px; padding-top:12px;
+    border-top:1px solid rgba(255,255,255,.16);
+  }
+  .risk-title{ font-size:13px; font-weight:bold; color:var(--gold); margin-bottom:6px; }
+  .risk-verdict{ font-size:14px; font-weight:bold; margin-bottom:6px; }
+  .risk-line{ font-size:11.5px; color:#ccc; line-height:1.6; }
+  .risk-note{ font-size:10.5px; color:#8f8f8f; line-height:1.55; margin-top:7px; }
   /* ---------- Controls ---------- */
   .controls{
     margin-top:20px;
@@ -520,7 +528,17 @@ const I18N = {
     oddsPockets:(c,n)=>`${c}/${n} 格`,
     oddsMore:n=>` … 等 ${n} 個`,
     oddsEv:(sign,v,pct)=>`期望值 <b>${sign}$${v}</b> (${sign}${pct}%)`,
-    oddsEvNote:(gain,v)=>`平均每局${gain?'賺':'虧'} $${v}`
+    oddsEvNote:(gain,v)=>`平均每局${gain?'賺':'虧'} $${v}`,
+
+    riskTitle:'⚖️ 值得下這注嗎?',
+    riskVerdict:label=>`波動評級:${label}`,
+    riskLevel_low:'穩健',
+    riskLevel_medium:'中等',
+    riskLevel_high:'高風險',
+    riskStdev:(sd,ratio)=>`每局損益標準差 $${sd}(約下注額的 ${ratio} 倍)`,
+    riskWorst:(v,pct)=>`最差情況:輸 $${v},發生機率 ${pct}%`,
+    riskStake:pct=>`這局動用了目前餘額的 ${pct}%`,
+    riskFixedEdge:'提醒:美式輪盤所有標準注別長期期望值都固定是 −5.26%,沒有哪種注法在數學上「比較划算」。這裡評的是波動大小與風險曝險,不是勝率。'
   },
   en: {
     balance:'Balance', betLabel:'Bet', lastLabel:'Last',
@@ -561,7 +579,17 @@ const I18N = {
     oddsPockets:(c,n)=>`${c}/${n} pockets`,
     oddsMore:n=>` … ${n} total`,
     oddsEv:(sign,v,pct)=>`Expected value <b>${sign}$${v}</b> (${sign}${pct}%)`,
-    oddsEvNote:(gain,v)=>`${gain?'Gaining':'Losing'} $${v} per spin on average`
+    oddsEvNote:(gain,v)=>`${gain?'Gaining':'Losing'} $${v} per spin on average`,
+
+    riskTitle:'⚖️ Is This Bet Worth It?',
+    riskVerdict:label=>`Volatility: ${label}`,
+    riskLevel_low:'Low',
+    riskLevel_medium:'Medium',
+    riskLevel_high:'High',
+    riskStdev:(sd,ratio)=>`Payout swings by $${sd} per spin (about ${ratio}x your stake)`,
+    riskWorst:(v,pct)=>`Worst case: lose $${v}, happens ${pct}% of the time`,
+    riskStake:pct=>`This spin risks ${pct}% of your current balance`,
+    riskFixedEdge:'Note: every standard roulette bet carries the same fixed −5.26% edge long-run — no bet type is mathematically "better" than another. This section rates volatility and exposure, not win rate.'
   }
 };
 
@@ -945,6 +973,31 @@ function listPockets(nums){
   return s.slice(0,9).join(', ') + t('oddsMore', s.length);
 }
 
+// Settles every one of the 38 pockets through the real payout() and groups
+// them by net profit/loss. Both the outcome list and the risk analysis read
+// from this single computation, so they can never disagree with each other.
+function getOutcomeDistribution(){
+  const total = totalBetAmount();
+  const buckets = new Map();
+  for(const num of WHEEL_ORDER){
+    let returned = 0;
+    for(const key in bets) returned += payout(key, bets[key], num);
+    const net = returned - total;
+    if(!buckets.has(net)) buckets.set(net, []);
+    buckets.get(net).push(num);
+  }
+  const rows = [...buckets.entries()].sort((a,b)=>b[0]-a[0]);
+  let ev = 0;
+  rows.forEach(([net, nums]) => ev += net*nums.length);
+  ev /= N;
+
+  let variance = 0;
+  rows.forEach(([net, nums]) => variance += (nums.length/N) * (net-ev)*(net-ev));
+  const stdev = Math.sqrt(variance);
+
+  return {total, rows, ev, stdev};
+}
+
 function updateOdds(){
   const panel = document.getElementById('oddsPanel');
   if(!panel) return;
@@ -956,20 +1009,7 @@ function updateOdds(){
     return;
   }
 
-  // net profit/loss -> which pockets produce it
-  const buckets = new Map();
-  for(const num of WHEEL_ORDER){
-    let returned = 0;
-    for(const key in bets) returned += payout(key, bets[key], num);
-    const net = returned - total;
-    if(!buckets.has(net)) buckets.set(net, []);
-    buckets.get(net).push(num);
-  }
-
-  const rows = [...buckets.entries()].sort((a,b)=>b[0]-a[0]);
-  let ev = 0;
-  rows.forEach(([net, nums]) => ev += net*nums.length);
-  ev /= N;
+  const {rows, ev, stdev} = getOutcomeDistribution();
 
   let html = `<div class="odds-title">${t('oddsTitle')}</div>`
     + `<div class="odds-sub">${t('oddsSub', total, N)}</div>`;
@@ -996,7 +1036,40 @@ function updateOdds(){
     + `<br>` + t('oddsEvNote', ev >= 0, Math.abs(ev).toFixed(2))
     + `</div>`;
 
+  html += renderRiskAnalysis(stdev, total, rows);
+
   panel.innerHTML = html;
+}
+
+// Every standard bet has the identical -5.26% edge, so EV alone can never say
+// one bet is "worth it" over another — that part is constant. What actually
+// differs bet-to-bet is volatility (how hard the outcomes swing) and how much
+// of the current bankroll a single spin puts on the line. This section rates
+// those two things instead of pretending some bets beat the house edge.
+function classifyVolatility(stdev, total){
+  const ratio = total > 0 ? stdev/total : 0;
+  if(ratio < 1.2) return {level:'low',    ratio};
+  if(ratio < 3.0) return {level:'medium', ratio};
+  return {level:'high', ratio};
+}
+
+function renderRiskAnalysis(stdev, total, rows){
+  const {level, ratio} = classifyVolatility(stdev, total);
+  const worst = rows[rows.length-1];              // most negative net, sorted desc
+  const worstPct = worst[1].length / N * 100;
+  const stakePct = balance > 0 ? Math.min(100, total/balance*100) : 100;
+
+  const levelColor = {low:'#5ed67c', medium:'#e8c165', high:'#f2706f'}[level];
+  const levelLabel = t('riskLevel_'+level);
+
+  return `<div class="risk-box">`
+    + `<div class="risk-title">${t('riskTitle')}</div>`
+    + `<div class="risk-verdict" style="color:${levelColor}">${t('riskVerdict', levelLabel)}</div>`
+    + `<div class="risk-line">${t('riskStdev', stdev.toFixed(2), ratio.toFixed(2))}</div>`
+    + `<div class="risk-line">${t('riskWorst', Math.abs(worst[0]), worstPct.toFixed(1))}</div>`
+    + `<div class="risk-line">${t('riskStake', stakePct.toFixed(1))}</div>`
+    + `<div class="risk-note">${t('riskFixedEdge')}</div>`
+    + `</div>`;
 }
 
 function clearBets(){
