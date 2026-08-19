@@ -338,17 +338,18 @@
 <h1>🎡 AMERICAN ROULETTE</h1>
 
 <div class="stats">
-  <div>餘額 $<b id="balance">1000</b></div>
-  <div>本輪下注 $<b id="totalBet">0</b></div>
-  <div>上局結果 <b id="lastResult">-</b></div>
+  <div><span data-i18n="balance">餘額</span> $<b id="balance">1000</b></div>
+  <div><span data-i18n="betLabel">本輪下注</span> $<b id="totalBet">0</b></div>
+  <div><span data-i18n="lastLabel">上局結果</span> <b id="lastResult">-</b></div>
   <div class="balance-editor">
-    <input type="number" id="balanceInput" placeholder="輸入金額" min="0" step="1">
-    <button class="action secondary small" id="setBalanceBtn">設定餘額</button>
-    <button class="action secondary small" id="addBalanceBtn">+ 加值</button>
+    <input type="number" id="balanceInput" data-i18n-ph="amountPh" placeholder="輸入金額" min="0" step="1">
+    <button class="action secondary small" id="setBalanceBtn" data-i18n="setBalance">設定餘額</button>
+    <button class="action secondary small" id="addBalanceBtn" data-i18n="addBalance">+ 加值</button>
   </div>
+  <button class="action secondary small" id="langBtn">English</button>
 </div>
 
-<div id="message">選擇籌碼並在桌上下注,然後按 SPIN！</div>
+<div id="message"></div>
 
 <div class="layout">
   <div class="wheel-stage">
@@ -385,14 +386,124 @@
   <div class="chips" id="chips"></div>
   <div class="row">
     <button class="action" id="spinBtn">SPIN 🎯</button>
-    <button class="action secondary" id="clearBtn">清空下注</button>
-    <button class="action secondary" id="repeatBtn">🔁 重複上次下注</button>
-    <button class="action secondary" id="resetBtn">重設餘額</button>
+    <button class="action secondary" id="clearBtn" data-i18n="clearBets">清空下注</button>
+    <button class="action secondary" id="repeatBtn" data-i18n="repeatBet">🔁 重複上次下注</button>
+    <button class="action secondary" id="resetBtn" data-i18n="resetBalance">重設餘額</button>
   </div>
   <div id="history"></div>
 </div>
 
 <script>
+// ---------------- i18n ----------------
+// Values are either plain strings or functions of the interpolated values.
+// Table markings (RED / EVEN / 1st 12 / 2 to 1 …) stay English in both
+// languages — that is how they are printed on a real casino layout.
+const I18N = {
+  zh: {
+    balance:'餘額', betLabel:'本輪下注', lastLabel:'上局結果',
+    amountPh:'輸入金額', setBalance:'設定餘額', addBalance:'+ 加值',
+    clearBets:'清空下注', repeatBet:'🔁 重複上次下注', resetBalance:'重設餘額',
+    langBtn:'English',
+
+    msgWelcome:'選擇籌碼並在桌上下注,然後按 SPIN！',
+    msgNoFunds:'餘額不足！',
+    msgCleared:'已清空下注。',
+    msgNoLastBet:'還沒有上一次的下注可以重複。',
+    msgRepeatNoFunds:t=>`餘額不足,無法重複上次下注(需要 $${t})。`,
+    msgRepeated:t=>`已重複上次下注,共 $${t}。`,
+    msgSpinningLock:'轉動中,請稍後再調整餘額。',
+    msgBadAmount:'請輸入有效的金額！(必須是 0 或正整數)',
+    msgBalanceSet:b=>`餘額已設定為 $${b}。`,
+    msgBadAdd:'請輸入有效的加值金額！(必須大於 0)',
+    msgAdded:(v,b)=>`已加值 $${v},目前餘額 $${b}。`,
+    msgBalanceReset:'餘額已重設為 $1000。',
+    msgBetFirst:'請先下注！',
+    msgSpinning:'轉動中...',
+    msgWin:(n,w)=>`🎉 開出 ${n}！贏得 $${w}！`,
+    msgLose:n=>`開出 ${n}。這局沒中,再接再厲！`,
+    msgBroke:'💸 餘額歸零！請按「重設餘額」重新開始。',
+    green:'綠', red:'紅', black:'黑',
+
+    oddsTitle:'📊 機率分析',
+    oddsEmpty:'尚未下注。<br>在桌上放入籌碼後,這裡會即時算出每種結果的機率與盈虧。',
+    oddsSub:(t,n)=>`本局下注 $${t} ・ 共 ${n} 格`,
+    oddsWin:v=>`賺 +$${v}`,
+    oddsEven:'不賺不賠',
+    oddsLose:v=>`賠 −$${v}`,
+    oddsPockets:(c,n)=>`${c}/${n} 格`,
+    oddsMore:n=>` … 等 ${n} 個`,
+    oddsEv:(sign,v,pct)=>`期望值 <b>${sign}$${v}</b> (${sign}${pct}%)`,
+    oddsEvNote:(gain,v)=>`平均每局${gain?'賺':'虧'} $${v}`
+  },
+  en: {
+    balance:'Balance', betLabel:'Bet', lastLabel:'Last',
+    amountPh:'Amount', setBalance:'Set Balance', addBalance:'+ Add',
+    clearBets:'Clear Bets', repeatBet:'🔁 Repeat Bet', resetBalance:'Reset Balance',
+    langBtn:'中文',
+
+    msgWelcome:'Pick a chip, place your bets, then hit SPIN!',
+    msgNoFunds:'Not enough balance!',
+    msgCleared:'Bets cleared.',
+    msgNoLastBet:'No previous bet to repeat yet.',
+    msgRepeatNoFunds:t=>`Not enough balance to repeat that bet (needs $${t}).`,
+    msgRepeated:t=>`Last bet repeated — $${t} total.`,
+    msgSpinningLock:'Wheel is spinning — adjust the balance once it stops.',
+    msgBadAmount:'Enter a valid amount (0 or a positive whole number).',
+    msgBalanceSet:b=>`Balance set to $${b}.`,
+    msgBadAdd:'Enter a valid amount to add (must be greater than 0).',
+    msgAdded:(v,b)=>`Added $${v} — balance is now $${b}.`,
+    msgBalanceReset:'Balance reset to $1000.',
+    msgBetFirst:'Place a bet first!',
+    msgSpinning:'Spinning...',
+    msgWin:(n,w)=>`🎉 ${n} wins! You collect $${w}!`,
+    msgLose:n=>`${n}. No luck this time — try again!`,
+    msgBroke:'💸 You are out of money! Hit "Reset Balance" to start over.',
+    green:'green', red:'red', black:'black',
+
+    oddsTitle:'📊 Odds Breakdown',
+    oddsEmpty:'No bets yet.<br>Place chips on the table and every outcome\'s odds and payout appear here.',
+    oddsSub:(t,n)=>`$${t} at stake ・ ${n} pockets`,
+    oddsWin:v=>`Win +$${v}`,
+    oddsEven:'Break even',
+    oddsLose:v=>`Lose −$${v}`,
+    oddsPockets:(c,n)=>`${c}/${n} pockets`,
+    oddsMore:n=>` … ${n} total`,
+    oddsEv:(sign,v,pct)=>`Expected value <b>${sign}$${v}</b> (${sign}${pct}%)`,
+    oddsEvNote:(gain,v)=>`${gain?'Gaining':'Losing'} $${v} per spin on average`
+  }
+};
+
+let lang = 'zh';
+function t(key, ...args){
+  const v = I18N[lang][key];
+  return typeof v === 'function' ? v(...args) : v;
+}
+
+// Remembered so the banner and result can be re-rendered on a language switch.
+let currentMsg = ['msgWelcome'];
+let lastResultData = null;
+
+function applyLang(){
+  document.documentElement.lang = (lang === 'zh') ? 'zh-Hant' : 'en';
+  document.querySelectorAll('[data-i18n]').forEach(elm=>{
+    elm.textContent = t(elm.dataset.i18n);
+  });
+  document.querySelectorAll('[data-i18n-ph]').forEach(elm=>{
+    elm.placeholder = t(elm.dataset.i18nPh);
+  });
+  document.getElementById('langBtn').textContent = t('langBtn');
+  document.getElementById('message').textContent = t(...currentMsg);
+  renderLastResult();
+  updateOdds();
+}
+
+function renderLastResult(){
+  const box = document.getElementById('lastResult');
+  if(!lastResultData){ box.textContent = '-'; return; }
+  const {num, col} = lastResultData;
+  box.textContent = `${num} (${t(col)})`;
+}
+
 // ---------------- Data ----------------
 const RED_NUMBERS = new Set([1,3,5,7,9,12,14,16,18,19,21,23,25,27,30,32,34,36]);
 function colorOf(n){
@@ -615,7 +726,7 @@ function placeBet(key, el, label){
   if(spinning) return;
   const currentTotal = totalBetAmount();
   if(currentTotal + selectedChip > balance){
-    setMessage('餘額不足！');
+    setMessage('msgNoFunds');
     return;
   }
   bets[key] = (bets[key]||0) + selectedChip;
@@ -654,7 +765,7 @@ function sortPockets(nums){
 function listPockets(nums){
   const s = sortPockets(nums);
   if(s.length <= 9) return s.join(', ');
-  return s.slice(0,9).join(', ') + ` … 等 ${s.length} 個`;
+  return s.slice(0,9).join(', ') + t('oddsMore', s.length);
 }
 
 function updateOdds(){
@@ -663,9 +774,8 @@ function updateOdds(){
   const total = totalBetAmount();
 
   if(total === 0){
-    panel.innerHTML = '<div class="odds-title">📊 機率分析</div>'
-      + '<div class="odds-empty">尚未下注。<br>在桌上放入籌碼後,'
-      + '這裡會即時算出每種結果的機率與盈虧。</div>';
+    panel.innerHTML = `<div class="odds-title">${t('oddsTitle')}</div>`
+      + `<div class="odds-empty">${t('oddsEmpty')}</div>`;
     return;
   }
 
@@ -684,29 +794,30 @@ function updateOdds(){
   rows.forEach(([net, nums]) => ev += net*nums.length);
   ev /= N;
 
-  let html = '<div class="odds-title">📊 機率分析</div>'
-    + `<div class="odds-sub">本局下注 $${total} ・ 共 ${N} 格</div>`;
+  let html = `<div class="odds-title">${t('oddsTitle')}</div>`
+    + `<div class="odds-sub">${t('oddsSub', total, N)}</div>`;
 
   for(const [net, nums] of rows){
     const pct = nums.length / N * 100;
     const cls = net > 0 ? 'win' : (net === 0 ? 'even' : 'lose');
     const color = net > 0 ? '#5ed67c' : (net === 0 ? '#e8c165' : '#f2706f');
-    const label = net > 0 ? `賺 +$${net}`
-                : net === 0 ? '不賺不賠'
-                : `賠 −$${Math.abs(net)}`;
+    const label = net > 0 ? t('oddsWin', net)
+                : net === 0 ? t('oddsEven')
+                : t('oddsLose', Math.abs(net));
     html += `<div class="odds-row ${cls}">`
       + `<div class="odds-head"><span class="odds-label">${label}</span>`
       + `<span class="odds-pct">${pct.toFixed(1)}%</span></div>`
-      + `<div class="odds-meta">${nums.length}/${N} 格 ・ ${listPockets(nums)}</div>`
+      + `<div class="odds-meta">${t('oddsPockets', nums.length, N)} ・ ${listPockets(nums)}</div>`
       + `<div class="odds-bar"><span style="width:${pct}%;background:${color}"></span></div>`
       + `</div>`;
   }
 
   const evPct = ev / total * 100;
   const sign = ev >= 0 ? '+' : '−';
-  html += `<div class="odds-ev">期望值 <b>${sign}$${Math.abs(ev).toFixed(2)}</b>`
-    + ` (${sign}${Math.abs(evPct).toFixed(2)}%)<br>`
-    + `平均每局${ev >= 0 ? '賺' : '虧'} $${Math.abs(ev).toFixed(2)}</div>`;
+  html += `<div class="odds-ev">`
+    + t('oddsEv', sign, Math.abs(ev).toFixed(2), Math.abs(evPct).toFixed(2))
+    + `<br>` + t('oddsEvNote', ev >= 0, Math.abs(ev).toFixed(2))
+    + `</div>`;
 
   panel.innerHTML = html;
 }
@@ -720,18 +831,18 @@ function clearBets(){
 document.getElementById('clearBtn').addEventListener('click', ()=>{
   if(spinning) return;
   clearBets();
-  setMessage('已清空下注。');
+  setMessage('msgCleared');
 });
 
 document.getElementById('repeatBtn').addEventListener('click', ()=>{
   if(spinning) return;
   if(!lastBets || Object.keys(lastBets).length===0){
-    setMessage('還沒有上一次的下注可以重複。');
+    setMessage('msgNoLastBet');
     return;
   }
   const total = Object.values(lastBets).reduce((a,b)=>a+b,0);
   if(total > balance){
-    setMessage(`餘額不足,無法重複上次下注(需要 $${total})。`);
+    setMessage('msgRepeatNoFunds', total);
     return;
   }
   clearBets();
@@ -742,7 +853,7 @@ document.getElementById('repeatBtn').addEventListener('click', ()=>{
     if(el) updateChipDot(el, amt);
   }
   updateTotalBetDisplay();
-  setMessage(`已重複上次下注,共 $${total}。`);
+  setMessage('msgRepeated', total);
 });
 
 document.getElementById('resetBtn').addEventListener('click', ()=>{
@@ -750,7 +861,7 @@ document.getElementById('resetBtn').addEventListener('click', ()=>{
   balance = 1000;
   clearBets();
   document.getElementById('balance').textContent = balance;
-  setMessage('餘額已重設為 $1000。');
+  setMessage('msgBalanceReset');
 });
 
 function flashBalance(){
@@ -766,12 +877,12 @@ function flashBalance(){
 function doSetBalance(){
   // Balance can't be changed mid-spin: resolveSpin still has to settle the bets already
   // wagered on this spin, and editing balance/bets now would corrupt that settlement.
-  if(spinning){ setMessage('轉動中,請稍後再調整餘額。'); return; }
+  if(spinning){ setMessage('msgSpinningLock'); return; }
   const input = document.getElementById('balanceInput');
   const raw = input.value.trim();
   const val = Math.floor(Number(raw));
   if(raw === '' || !Number.isFinite(val) || val < 0){
-    setMessage('請輸入有效的金額！(必須是 0 或正整數)');
+    setMessage('msgBadAmount');
     return;
   }
   balance = val;
@@ -779,23 +890,23 @@ function doSetBalance(){
   document.getElementById('balance').textContent = balance;
   input.value = '';
   flashBalance();
-  setMessage(`餘額已設定為 $${balance}。`);
+  setMessage('msgBalanceSet', balance);
 }
 
 function doAddBalance(){
-  if(spinning){ setMessage('轉動中,請稍後再調整餘額。'); return; }
+  if(spinning){ setMessage('msgSpinningLock'); return; }
   const input = document.getElementById('balanceInput');
   const raw = input.value.trim();
   const val = Math.floor(Number(raw));
   if(raw === '' || !Number.isFinite(val) || val <= 0){
-    setMessage('請輸入有效的加值金額！(必須大於 0)');
+    setMessage('msgBadAdd');
     return;
   }
   balance += val;
   document.getElementById('balance').textContent = balance;
   input.value = '';
   flashBalance();
-  setMessage(`已加值 $${val},目前餘額 $${balance}。`);
+  setMessage('msgAdded', val, balance);
 }
 
 document.getElementById('setBalanceBtn').addEventListener('click', doSetBalance);
@@ -804,8 +915,9 @@ document.getElementById('balanceInput').addEventListener('keydown', (e)=>{
   if(e.key === 'Enter') doSetBalance();
 });
 
-function setMessage(msg){
-  document.getElementById('message').textContent = msg;
+function setMessage(key, ...args){
+  currentMsg = [key, ...args];
+  document.getElementById('message').textContent = t(key, ...args);
 }
 
 // ---------------- Build wheel visual ----------------
@@ -1025,10 +1137,15 @@ function buildGloss(){
   glossEl.appendChild(svg);
 }
 
+document.getElementById('langBtn').addEventListener('click', ()=>{
+  lang = (lang === 'zh') ? 'en' : 'zh';
+  applyLang();
+});
+
 buildFrame();
 buildWheel();
 buildGloss();
-updateOdds();
+applyLang();   // also renders the welcome message and the empty odds panel
 
 // ---------------- Spin logic ----------------
 let wheelRotation = 0;
@@ -1037,7 +1154,7 @@ let ballRotation = 0;
 function spin(){
   if(spinning) return;
   const total = totalBetAmount();
-  if(total===0){ setMessage('請先下注！'); return; }
+  if(total===0){ setMessage('msgBetFirst'); return; }
   spinning = true;
   document.getElementById('spinBtn').disabled = true;
 
@@ -1074,7 +1191,7 @@ function spin(){
   ball.style.transform = `rotate(${newBallRotation}deg) translateY(0)`;
   ballRotation = newBallRotation;
 
-  setMessage('轉動中...');
+  setMessage('msgSpinning');
 
   setTimeout(()=> resolveSpin(winNumber, betsSnapshot, betsTotal), 4200);
 }
@@ -1093,20 +1210,21 @@ function resolveSpin(winNumber, betsSnapshot, betsTotal){
   document.getElementById('balance').textContent = balance;
 
   const col = colorOf(winNumber);
-  document.getElementById('lastResult').textContent = winNumber + ' (' + (col==='green'?'綠':col==='red'?'紅':'黑') + ')';
+  lastResultData = {num: winNumber, col};
+  renderLastResult();
 
   addHistory(winNumber, col);
 
   if(winnings>0){
-    setMessage(`🎉 開出 ${winNumber}！贏得 $${winnings}！`);
+    setMessage('msgWin', winNumber, winnings);
   } else {
-    setMessage(`開出 ${winNumber}。這局沒中,再接再厲！`);
+    setMessage('msgLose', winNumber);
   }
 
   clearBets();
 
   if(balance<=0){
-    setMessage('💸 餘額歸零！請按「重設餘額」重新開始。');
+    setMessage('msgBroke');
   }
 }
 
