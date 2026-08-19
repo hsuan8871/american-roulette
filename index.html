@@ -200,6 +200,42 @@
     pointer-events:none;
     z-index:20;
   }
+  /* ---------- Odds panel ---------- */
+  .odds-panel{
+    width:252px;
+    flex-shrink:0;
+    align-self:stretch;
+    background:rgba(0,0,0,.42);
+    border:2px solid #3d2f14;
+    border-radius:12px;
+    padding:14px 16px;
+    box-shadow:0 10px 30px rgba(0,0,0,.45);
+  }
+  .odds-title{
+    font-size:15px; font-weight:bold; color:var(--gold);
+    letter-spacing:1px; margin-bottom:3px;
+  }
+  .odds-sub{ font-size:12px; color:#b9b9b9; margin-bottom:12px; }
+  .odds-empty{ font-size:13px; color:#a9a9a9; line-height:1.7; }
+  .odds-row{ margin-bottom:11px; }
+  .odds-head{ display:flex; justify-content:space-between; align-items:baseline; }
+  .odds-label{ font-weight:bold; font-size:14px; }
+  .odds-pct{ font-weight:bold; font-size:14px; }
+  .odds-meta{ font-size:11px; color:#aaa; margin-top:2px; }
+  .odds-bar{
+    height:6px; border-radius:3px; margin-top:4px;
+    background:rgba(255,255,255,.12); overflow:hidden;
+  }
+  .odds-bar span{ display:block; height:100%; border-radius:3px; }
+  .odds-row.win .odds-label, .odds-row.win .odds-pct{ color:#5ed67c; }
+  .odds-row.even .odds-label, .odds-row.even .odds-pct{ color:#e8c165; }
+  .odds-row.lose .odds-label, .odds-row.lose .odds-pct{ color:#f2706f; }
+  .odds-ev{
+    margin-top:13px; padding-top:11px;
+    border-top:1px solid rgba(255,255,255,.16);
+    font-size:12px; color:#c6c6c6; line-height:1.6;
+  }
+  .odds-ev b{ color:#fff; font-size:13px; }
   /* ---------- Controls ---------- */
   .controls{
     margin-top:20px;
@@ -341,6 +377,8 @@
       <div></div>
     </div>
   </div>
+
+  <div class="odds-panel" id="oddsPanel"></div>
 </div>
 
 <div class="controls">
@@ -601,6 +639,76 @@ function totalBetAmount(){
 
 function updateTotalBetDisplay(){
   document.getElementById('totalBet').textContent = totalBetAmount();
+  updateOdds();
+}
+
+// ---------------- Live odds panel ----------------
+// Every pocket is settled with the real payout() used by resolveSpin(), so the
+// panel can never drift from what the game actually pays out.
+function sortPockets(nums){
+  const zeros = nums.filter(n => n==='0' || n==='00');
+  const rest = nums.filter(n => typeof n === 'number').sort((a,b)=>a-b);
+  return [...zeros, ...rest];
+}
+
+function listPockets(nums){
+  const s = sortPockets(nums);
+  if(s.length <= 9) return s.join(', ');
+  return s.slice(0,9).join(', ') + ` … 等 ${s.length} 個`;
+}
+
+function updateOdds(){
+  const panel = document.getElementById('oddsPanel');
+  if(!panel) return;
+  const total = totalBetAmount();
+
+  if(total === 0){
+    panel.innerHTML = '<div class="odds-title">📊 機率分析</div>'
+      + '<div class="odds-empty">尚未下注。<br>在桌上放入籌碼後,'
+      + '這裡會即時算出每種結果的機率與盈虧。</div>';
+    return;
+  }
+
+  // net profit/loss -> which pockets produce it
+  const buckets = new Map();
+  for(const num of WHEEL_ORDER){
+    let returned = 0;
+    for(const key in bets) returned += payout(key, bets[key], num);
+    const net = returned - total;
+    if(!buckets.has(net)) buckets.set(net, []);
+    buckets.get(net).push(num);
+  }
+
+  const rows = [...buckets.entries()].sort((a,b)=>b[0]-a[0]);
+  let ev = 0;
+  rows.forEach(([net, nums]) => ev += net*nums.length);
+  ev /= N;
+
+  let html = '<div class="odds-title">📊 機率分析</div>'
+    + `<div class="odds-sub">本局下注 $${total} ・ 共 ${N} 格</div>`;
+
+  for(const [net, nums] of rows){
+    const pct = nums.length / N * 100;
+    const cls = net > 0 ? 'win' : (net === 0 ? 'even' : 'lose');
+    const color = net > 0 ? '#5ed67c' : (net === 0 ? '#e8c165' : '#f2706f');
+    const label = net > 0 ? `賺 +$${net}`
+                : net === 0 ? '不賺不賠'
+                : `賠 −$${Math.abs(net)}`;
+    html += `<div class="odds-row ${cls}">`
+      + `<div class="odds-head"><span class="odds-label">${label}</span>`
+      + `<span class="odds-pct">${pct.toFixed(1)}%</span></div>`
+      + `<div class="odds-meta">${nums.length}/${N} 格 ・ ${listPockets(nums)}</div>`
+      + `<div class="odds-bar"><span style="width:${pct}%;background:${color}"></span></div>`
+      + `</div>`;
+  }
+
+  const evPct = ev / total * 100;
+  const sign = ev >= 0 ? '+' : '−';
+  html += `<div class="odds-ev">期望值 <b>${sign}$${Math.abs(ev).toFixed(2)}</b>`
+    + ` (${sign}${Math.abs(evPct).toFixed(2)}%)<br>`
+    + `平均每局${ev >= 0 ? '賺' : '虧'} $${Math.abs(ev).toFixed(2)}</div>`;
+
+  panel.innerHTML = html;
 }
 
 function clearBets(){
@@ -920,6 +1028,7 @@ function buildGloss(){
 buildFrame();
 buildWheel();
 buildGloss();
+updateOdds();
 
 // ---------------- Spin logic ----------------
 let wheelRotation = 0;
