@@ -217,6 +217,14 @@
     pointer-events:none;
     z-index:20;
   }
+  /* A spot with less than the table minimum can't be spun yet — flagged so the
+     player notices before hitting SPIN, not after it gets rejected. */
+  .chipdot.below-min{
+    background:#3a2d05;
+    color:#e8c165;
+    border-color:#f2706f;
+    box-shadow:0 0 0 2px rgba(242,112,111,.55), 0 2px 4px rgba(0,0,0,.5);
+  }
   /* ---------- Odds panel ---------- */
   .odds-panel{
     width:252px;
@@ -494,7 +502,7 @@ const I18N = {
     amountPh:'輸入金額', setBalance:'設定餘額', addBalance:'+ 加值',
     clearBets:'清空下注', repeatBet:'🔁 重複上次下注', resetBalance:'重設餘額',
     undoBet:'↩ 復原籌碼',
-    hintRemove:'💡 右鍵點擊下注點可移除一個籌碼(鍵盤:選取後按 Backspace)',
+    hintRemove:'💡 每個下注點最低 $5 才能開轉;右鍵點擊下注點可移除一個籌碼(鍵盤:選取後按 Backspace)',
     langBtn:'English',
 
     msgWelcome:'選擇籌碼並在桌上下注,然後按 SPIN！',
@@ -513,6 +521,8 @@ const I18N = {
     msgAdded:(v,b)=>`已加值 $${v},目前餘額 $${b}。`,
     msgBalanceReset:'餘額已重設為 $1000。',
     msgBetFirst:'請先下注！',
+    msgBelowMin:(min,n)=>`每個下注點最低要 $${min},還有 ${n} 個位置沒補到,請加碼或收回。`,
+    minBetHint:min=>`未達最低下注 $${min}`,
     msgSpinning:'轉動中...',
     msgWin:(n,w)=>`🎉 開出 ${n}！贏得 $${w}！`,
     msgLose:n=>`開出 ${n}。這局沒中,再接再厲！`,
@@ -545,7 +555,7 @@ const I18N = {
     amountPh:'Amount', setBalance:'Set Balance', addBalance:'+ Add',
     clearBets:'Clear Bets', repeatBet:'🔁 Repeat Bet', resetBalance:'Reset Balance',
     undoBet:'↩ Undo Chip',
-    hintRemove:'💡 Right-click a betting spot to take one chip back (keyboard: focus it and press Backspace)',
+    hintRemove:'💡 $5 minimum per spot to spin; right-click a betting spot to take one chip back (keyboard: focus it and press Backspace)',
     langBtn:'中文',
 
     msgWelcome:'Pick a chip, place your bets, then hit SPIN!',
@@ -564,6 +574,8 @@ const I18N = {
     msgAdded:(v,b)=>`Added $${v} — balance is now $${b}.`,
     msgBalanceReset:'Balance reset to $1000.',
     msgBetFirst:'Place a bet first!',
+    msgBelowMin:(min,n)=>`Table minimum is $${min} per spot — ${n} spot(s) still short. Add more or take them back.`,
+    minBetHint:min=>`Below the $${min} table minimum`,
     msgSpinning:'Spinning...',
     msgWin:(n,w)=>`🎉 ${n} wins! You collect $${w}!`,
     msgLose:n=>`${n}. No luck this time — try again!`,
@@ -875,9 +887,18 @@ chipValues.forEach(v=>{
 });
 
 // ---------------- Betting logic ----------------
+// Table minimum: real casinos won't let a spot ride for less than this, so a
+// spot can hold a smaller amount while you're still building it up, but the
+// wheel won't spin until every spot on the felt clears the minimum.
+const MIN_BET_PER_SPOT = 5;
+
 // Every chip laid down is recorded so "undo" can peel them off newest-first —
 // the touch-friendly counterpart to right-clicking an individual spot.
 let placements = [];
+
+function belowMinimumSpots(){
+  return Object.entries(bets).filter(([,amt]) => amt < MIN_BET_PER_SPOT);
+}
 
 function placeBet(key, el, label){
   keyElements[key] = el;
@@ -939,6 +960,8 @@ function updateChipDot(el, amount){
     el.appendChild(dot);
   }
   dot.textContent = amount;
+  dot.classList.toggle('below-min', amount < MIN_BET_PER_SPOT);
+  dot.title = (amount < MIN_BET_PER_SPOT) ? t('minBetHint', MIN_BET_PER_SPOT) : '';
 }
 
 function totalBetAmount(){
@@ -1531,6 +1554,11 @@ function spin(){
   if(spinning) return;
   const total = totalBetAmount();
   if(total===0){ setMessage('msgBetFirst'); return; }
+  const short = belowMinimumSpots();
+  if(short.length > 0){
+    setMessage('msgBelowMin', MIN_BET_PER_SPOT, short.length);
+    return;
+  }
   spinning = true;
   document.getElementById('spinBtn').disabled = true;
 
