@@ -1,0 +1,873 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<title>American Roulette</title>
+<style>
+  :root{
+    --green:#0b3d1e;
+    --felt:#0f5c2e;
+    --red:#d1263a;
+    --black:#1a1a1a;
+    --gold:#e8c165;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0;
+    min-height:100vh;
+    background:radial-gradient(ellipse at center, #145c33 0%, #0b3d1e 60%, #062713 100%);
+    font-family:'Trebuchet MS', Arial, sans-serif;
+    color:#fff;
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    padding:20px;
+  }
+  h1{
+    letter-spacing:4px;
+    text-shadow:0 2px 6px rgba(0,0,0,.6);
+    margin:6px 0 18px;
+  }
+  .layout{
+    display:flex;
+    gap:30px;
+    flex-wrap:wrap;
+    justify-content:center;
+    align-items:flex-start;
+  }
+  /* ---------- Wheel ---------- */
+  .wheel-box{
+    position:relative;
+    width:340px;
+    height:340px;
+    flex-shrink:0;
+  }
+  .wheel-outer{
+    position:absolute;
+    inset:0;
+    border-radius:50%;
+    background:radial-gradient(circle at 50% 45%, #caa25a, #8a6a2f 70%, #5c4620 100%);
+    box-shadow:0 0 0 6px #3d2f14, 0 10px 30px rgba(0,0,0,.6);
+  }
+  .wheel{
+    position:absolute;
+    top:16px;left:16px;right:16px;bottom:16px;
+    border-radius:50%;
+    transition: transform 4s cubic-bezier(.17,.67,.16,1);
+    box-shadow: inset 0 0 20px rgba(0,0,0,.6);
+  }
+  .hub{
+    position:absolute;
+    top:50%;left:50%;
+    width:60px;height:60px;
+    transform:translate(-50%,-50%);
+    background:radial-gradient(circle, #f0d78c, #a4802c 70%, #6b5217);
+    border-radius:50%;
+    box-shadow:0 4px 10px rgba(0,0,0,.6);
+  }
+  .pointer{
+    position:absolute;
+    top:-4px;left:50%;
+    width:0;height:0;
+    transform:translateX(-50%);
+    border-left:12px solid transparent;
+    border-right:12px solid transparent;
+    border-top:20px solid var(--gold);
+    filter:drop-shadow(0 2px 3px rgba(0,0,0,.6));
+    z-index:5;
+  }
+  .ball{
+    position:absolute;
+    width:12px;height:12px;
+    border-radius:50%;
+    background:radial-gradient(circle at 30% 30%, #fff, #ccc 60%, #888);
+    top:22px;left:50%;
+    margin-left:-6px;
+    transition: transform 4s cubic-bezier(.17,.67,.16,1);
+    z-index:6;
+  }
+  /* ---------- Table ---------- */
+  .table-wrap{
+    background:var(--felt);
+    border:6px solid #3d2f14;
+    border-radius:12px;
+    padding:14px;
+    box-shadow:0 10px 30px rgba(0,0,0,.5);
+  }
+  .grid{
+    display:grid;
+    grid-template-columns: 23px 23px repeat(12, 46px) 50px;
+    grid-template-rows: repeat(3, 46px);
+    gap:2px;
+    position:relative;
+  }
+  .cell{
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    font-weight:bold;
+    font-size:15px;
+    border-radius:3px;
+    cursor:pointer;
+    user-select:none;
+    position:relative;
+    transition:filter .15s;
+  }
+  .cell:hover{filter:brightness(1.25);}
+  .red{background:var(--red);}
+  .black{background:var(--black);}
+  .green{background:#0d6b31; border:1px solid #1a9146;}
+  .zero-cell{
+    grid-row: 1 / span 3;
+    writing-mode:vertical-rl;
+    font-size:18px;
+  }
+  #overlay{
+    position:absolute;
+    inset:0;
+    pointer-events:none;
+    z-index:10;
+  }
+  .hotspot{
+    position:absolute;
+    width:16px;height:16px;
+    margin:-8px 0 0 -8px;
+    border-radius:50%;
+    background:rgba(255,255,255,0);
+    pointer-events:auto;
+    cursor:pointer;
+  }
+  .hotspot:hover{
+    background:rgba(255,255,255,.4);
+    box-shadow:0 0 6px 3px rgba(255,255,255,.5);
+  }
+  .outside{
+    font-size:13px;
+    background:#0c4a24;
+    border:1px solid #157a3c;
+  }
+  .col2to1{ grid-column: 14; }
+  .bottom-row{
+    display:grid;
+    grid-template-columns: 46px repeat(3, 552px/3) 50px;
+    margin-top:2px;
+  }
+  .dozens{
+    display:grid;
+    grid-template-columns: repeat(3, 1fr);
+    grid-column: 2 / span 12;
+    gap:2px;
+  }
+  .evens{
+    display:grid;
+    grid-template-columns: repeat(6, 1fr);
+    grid-column: 2 / span 12;
+    gap:2px;
+    margin-top:2px;
+  }
+  .chipdot{
+    position:absolute;
+    top:50%; left:50%;
+    transform:translate(-50%,-50%);
+    width:22px;height:22px;
+    border-radius:50%;
+    background:var(--gold);
+    color:#3a2d05;
+    font-size:10px;
+    display:flex;align-items:center;justify-content:center;
+    font-weight:bold;
+    box-shadow:0 2px 4px rgba(0,0,0,.5);
+    border:2px solid #7a5c12;
+    pointer-events:none;
+    z-index:20;
+  }
+  /* ---------- Controls ---------- */
+  .controls{
+    margin-top:20px;
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    gap:12px;
+  }
+  .chips{
+    display:flex;
+    gap:10px;
+  }
+  .chip{
+    width:52px;height:52px;
+    border-radius:50%;
+    border:3px dashed #fff;
+    display:flex;align-items:center;justify-content:center;
+    font-weight:bold;
+    cursor:pointer;
+    color:#fff;
+    box-shadow:0 4px 8px rgba(0,0,0,.5);
+    transition:transform .1s;
+  }
+  .chip.selected{ transform:scale(1.15); box-shadow:0 0 0 3px #fff, 0 4px 10px rgba(0,0,0,.6); }
+  .chip:hover{transform:scale(1.08);}
+  .row{
+    display:flex;
+    gap:14px;
+    align-items:center;
+  }
+  button.action{
+    padding:10px 22px;
+    border:none;
+    border-radius:8px;
+    font-size:16px;
+    font-weight:bold;
+    cursor:pointer;
+    background:var(--gold);
+    color:#3a2d05;
+    box-shadow:0 4px 8px rgba(0,0,0,.4);
+  }
+  button.action:disabled{opacity:.5; cursor:not-allowed;}
+  button.secondary{
+    background:#444;
+    color:#fff;
+  }
+  .stats{
+    display:flex;
+    gap:26px;
+    align-items:center;
+    flex-wrap:wrap;
+    font-size:16px;
+    background:rgba(0,0,0,.35);
+    padding:10px 20px;
+    border-radius:8px;
+  }
+  .stats b{color:var(--gold);}
+  .balance-editor{
+    display:flex;
+    gap:8px;
+    align-items:center;
+  }
+  .balance-editor input{
+    width:100px;
+    padding:6px 8px;
+    border-radius:6px;
+    border:1px solid #666;
+    background:#111;
+    color:#fff;
+    font-size:14px;
+  }
+  button.action.small{
+    padding:6px 12px;
+    font-size:13px;
+  }
+  #message{
+    min-height:26px;
+    font-size:18px;
+    font-weight:bold;
+    text-shadow:0 2px 4px rgba(0,0,0,.6);
+  }
+  #history{
+    display:flex;
+    gap:6px;
+    flex-wrap:wrap;
+    max-width:600px;
+    justify-content:center;
+  }
+  .hist-num{
+    width:26px;height:26px;
+    border-radius:50%;
+    display:flex;align-items:center;justify-content:center;
+    font-size:11px;
+    font-weight:bold;
+  }
+</style>
+</head>
+<body>
+
+<h1>🎡 AMERICAN ROULETTE</h1>
+
+<div class="stats">
+  <div>餘額 $<b id="balance">1000</b></div>
+  <div>本輪下注 $<b id="totalBet">0</b></div>
+  <div>上局結果 <b id="lastResult">-</b></div>
+  <div class="balance-editor">
+    <input type="number" id="balanceInput" placeholder="輸入金額" min="0" step="1">
+    <button class="action secondary small" id="setBalanceBtn">設定餘額</button>
+    <button class="action secondary small" id="addBalanceBtn">+ 加值</button>
+  </div>
+</div>
+
+<div id="message">選擇籌碼並在桌上下注,然後按 SPIN！</div>
+
+<div class="layout">
+  <div class="wheel-box">
+    <div class="pointer"></div>
+    <div class="wheel-outer"></div>
+    <div class="wheel" id="wheel"></div>
+    <div class="ball" id="ball"></div>
+    <div class="hub"></div>
+  </div>
+
+  <div class="table-wrap">
+    <div class="grid" id="grid">
+      <div id="overlay"></div>
+    </div>
+    <div class="bottom-row">
+      <div></div>
+      <div class="dozens" id="dozens"></div>
+      <div></div>
+    </div>
+    <div class="bottom-row">
+      <div></div>
+      <div class="evens" id="evens"></div>
+      <div></div>
+    </div>
+  </div>
+</div>
+
+<div class="controls">
+  <div class="chips" id="chips"></div>
+  <div class="row">
+    <button class="action" id="spinBtn">SPIN 🎯</button>
+    <button class="action secondary" id="clearBtn">清空下注</button>
+    <button class="action secondary" id="repeatBtn">🔁 重複上次下注</button>
+    <button class="action secondary" id="resetBtn">重設餘額</button>
+  </div>
+  <div id="history"></div>
+</div>
+
+<script>
+// ---------------- Data ----------------
+const RED_NUMBERS = new Set([1,3,5,7,9,12,14,16,18,19,21,23,25,27,30,32,34,36]);
+function colorOf(n){
+  if(n==='0' || n==='00') return 'green';
+  return RED_NUMBERS.has(n) ? 'red' : 'black';
+}
+
+// American wheel physical order (0 and 00 opposite each other)
+const WHEEL_ORDER = ['0',28,9,26,30,11,7,20,32,17,5,22,34,15,3,24,36,13,1,'00',
+                      27,10,25,29,12,8,19,31,18,6,21,33,16,4,23,35,14,2];
+
+let balance = 1000;
+let selectedChip = 5;
+let bets = {}; // key -> amount
+let spinning = false;
+let history = [];
+let lastBets = null; // snapshot of the bets used on the most recently submitted spin
+const keyElements = {}; // betKey -> DOM element, so "repeat last bet" can re-render chip dots
+
+// ---------------- Build betting grid ----------------
+const grid = document.getElementById('grid');
+const overlay = document.getElementById('overlay');
+
+// hotspotNumbers[betKey] = array of winning-number strings covered by that bet
+const hotspotNumbers = {};
+
+// 0 and 00 as two separate straight-bet cells, side by side, spanning all 3 rows
+const zeroEl = document.createElement('div');
+zeroEl.className = 'cell zero-cell green';
+zeroEl.textContent = '0';
+zeroEl.style.gridColumn = '1';
+zeroEl.style.gridRow = '1 / span 3';
+zeroEl.dataset.betKey = 'nZ';
+zeroEl.addEventListener('click', ()=>placeBet('nZ', zeroEl, '0'));
+grid.appendChild(zeroEl);
+
+const doubleZeroEl = document.createElement('div');
+doubleZeroEl.className = 'cell zero-cell green';
+doubleZeroEl.textContent = '00';
+doubleZeroEl.style.gridColumn = '2';
+doubleZeroEl.style.gridRow = '1 / span 3';
+doubleZeroEl.dataset.betKey = 'nDZ';
+doubleZeroEl.addEventListener('click', ()=>placeBet('nDZ', doubleZeroEl, '00'));
+grid.appendChild(doubleZeroEl);
+
+// numbers 1-36 arranged in columns of 3 (top row:3,6,9.. mid row:2,5,8.. bottom row:1,4,7..)
+// cellRefs[row][col] -> element, row 0=top,1=mid,2=bottom ; numAt(row,col) -> number
+function numAt(row, col){ return col*3 + (3-row); }
+const cellRefs = [[],[],[]];
+for(let col=0; col<12; col++){
+  for(let row=0; row<3; row++){
+    const num = numAt(row,col);
+    const c = document.createElement('div');
+    c.className = 'cell ' + colorOf(num);
+    c.textContent = num;
+    c.style.gridColumn = String(col+3);
+    c.style.gridRow = String(row+1);
+    c.dataset.betKey = 'n'+num;
+    c.addEventListener('click', ()=>placeBet('n'+num, c, num));
+    grid.appendChild(c);
+    cellRefs[row][col] = c;
+  }
+}
+
+// 2 to 1 column bets (one per row) - last grid column
+['3rd','2nd','1st'].forEach((label, idx)=>{
+  const c = document.createElement('div');
+  c.className = 'cell outside';
+  c.textContent = '2 to 1';
+  c.style.gridColumn = '15';
+  c.style.gridRow = String(idx+1);
+  c.dataset.betKey = 'col'+idx;
+  c.addEventListener('click', ()=>placeBet('col'+idx, c, '2to1'));
+  grid.appendChild(c);
+});
+
+// ---------------- Split / Street / Corner / Six-line hotspots ----------------
+// Built from actual rendered cell positions so they always line up with the grid, regardless of sizing.
+function addHotspot(x, y, key, label, numbers){
+  const h = document.createElement('div');
+  h.className = 'hotspot';
+  h.style.left = x+'px';
+  h.style.top = y+'px';
+  h.title = label;
+  h.dataset.betKey = key;
+  h.addEventListener('click', ()=>placeBet(key, h, label));
+  overlay.appendChild(h);
+  hotspotNumbers[key] = numbers;
+}
+
+function rectOf(el, gridRect){
+  const r = el.getBoundingClientRect();
+  return { left: r.left-gridRect.left, top: r.top-gridRect.top, width: r.width, height: r.height };
+}
+
+function buildOverlay(){
+  overlay.innerHTML = '';
+  const gridRect = grid.getBoundingClientRect();
+
+  // vertical splits: within a column, between adjacent rows (e.g. 1-2, 2-3)
+  for(let col=0; col<12; col++){
+    for(let row=0; row<2; row++){
+      const ra = rectOf(cellRefs[row][col], gridRect);
+      const x = ra.left + ra.width/2;
+      const y = ra.top + ra.height;
+      addHotspot(x, y, 'split_v_'+row+'_'+col, 'Split '+numAt(row,col)+'-'+numAt(row+1,col),
+        [String(numAt(row,col)), String(numAt(row+1,col))]);
+    }
+  }
+  // horizontal splits: within a row, between adjacent columns (e.g. 1-4, 4-7)
+  for(let row=0; row<3; row++){
+    for(let col=0; col<11; col++){
+      const ra = rectOf(cellRefs[row][col], gridRect);
+      const x = ra.left + ra.width;
+      const y = ra.top + ra.height/2;
+      addHotspot(x, y, 'split_h_'+row+'_'+col, 'Split '+numAt(row,col)+'-'+numAt(row,col+1),
+        [String(numAt(row,col)), String(numAt(row,col+1))]);
+    }
+  }
+  // corners: 4 numbers meeting at an interior grid point
+  for(let row=0; row<2; row++){
+    for(let col=0; col<11; col++){
+      const ra = rectOf(cellRefs[row][col], gridRect);
+      const x = ra.left + ra.width;
+      const y = ra.top + ra.height;
+      const nums = [numAt(row,col), numAt(row,col+1), numAt(row+1,col), numAt(row+1,col+1)];
+      addHotspot(x, y, 'corner_'+row+'_'+col, 'Corner '+nums.join('-'), nums.map(String));
+    }
+  }
+  // streets: 3 numbers in one column, marker on the bottom outer edge
+  for(let col=0; col<12; col++){
+    const ra = rectOf(cellRefs[2][col], gridRect);
+    const x = ra.left + ra.width/2;
+    const y = ra.top + ra.height;
+    const nums = [numAt(0,col), numAt(1,col), numAt(2,col)];
+    addHotspot(x, y, 'street_'+col, 'Street '+nums.join('-'), nums.map(String));
+  }
+  // six-lines: 6 numbers spanning two adjacent columns, marker on the bottom outer edge
+  for(let col=0; col<11; col++){
+    const ra = rectOf(cellRefs[2][col], gridRect);
+    const x = ra.left + ra.width;
+    const y = ra.top + ra.height;
+    const nums = [numAt(0,col),numAt(1,col),numAt(2,col),numAt(0,col+1),numAt(1,col+1),numAt(2,col+1)];
+    addHotspot(x, y, 'sixline_'+col, 'Six Line '+nums.join('-'), nums.map(String));
+  }
+  // split between 0 and 00
+  {
+    const rz = rectOf(zeroEl, gridRect);
+    const x = rz.left + rz.width;
+    const y = rz.top + rz.height/2;
+    addHotspot(x, y, 'split_0_00', 'Split 0-00', ['0','00']);
+  }
+  // split 0-1 / 0-2 (0 touches top half of column 0)
+  {
+    const rz = rectOf(zeroEl, gridRect);
+    const r0 = rectOf(cellRefs[0][0], gridRect); // number 3, top row - not adjacent to 0; use row1(mid=2) and row2(bottom=1)
+    const rMid = rectOf(cellRefs[1][0], gridRect); // number 2
+    const rBot = rectOf(cellRefs[2][0], gridRect); // number 1
+    addHotspot(rz.left+rz.width, rMid.top, 'split_0_2', 'Split 0-2', ['0','2']);
+    addHotspot(rz.left+rz.width, rBot.top, 'split_0_1', 'Split 0-1', ['0','1']);
+  }
+  // split 00-2 / 00-3
+  {
+    const rzz = rectOf(doubleZeroEl, gridRect);
+    const rTop = rectOf(cellRefs[0][0], gridRect); // number 3
+    const rMid = rectOf(cellRefs[1][0], gridRect); // number 2
+    addHotspot(rzz.left+rzz.width, rMid.top, 'split_00_2', 'Split 00-2', ['00','2']);
+    addHotspot(rzz.left+rzz.width, rTop.top, 'split_00_3', 'Split 00-3', ['00','3']);
+  }
+}
+buildOverlay();
+window.addEventListener('resize', buildOverlay);
+
+// dozens
+const dozens = document.getElementById('dozens');
+[['1st 12','d0'],['2nd 12','d1'],['3rd 12','d2']].forEach(([label,key])=>{
+  const c = document.createElement('div');
+  c.className = 'cell outside';
+  c.textContent = label;
+  c.dataset.betKey = key;
+  c.addEventListener('click', ()=>placeBet(key, c, label));
+  dozens.appendChild(c);
+});
+
+// evens row: 1-18, EVEN, RED, BLACK, ODD, 19-36
+const evens = document.getElementById('evens');
+[
+  ['1 to 18','low'],['EVEN','even'],['RED','red'],['BLACK','black'],['ODD','odd'],['19 to 36','high']
+].forEach(([label,key])=>{
+  const c = document.createElement('div');
+  c.className = 'cell outside';
+  if(key==='red') c.classList.add('red');
+  else if(key==='black') c.classList.add('black');
+  c.textContent = label;
+  c.dataset.betKey = key;
+  c.addEventListener('click', ()=>placeBet(key, c, label));
+  evens.appendChild(c);
+});
+
+// ---------------- Chips ----------------
+const chipValues = [1,5,10,25,50,100];
+const chipColors = {1:'#888',5:'#c0392b',10:'#2980b9',25:'#27ae60',50:'#222',100:'#7d3c98'};
+const chipsBox = document.getElementById('chips');
+chipValues.forEach(v=>{
+  const c = document.createElement('div');
+  c.className = 'chip' + (v===selectedChip?' selected':'');
+  c.style.background = chipColors[v];
+  c.textContent = '$'+v;
+  c.addEventListener('click', ()=>{
+    document.querySelectorAll('.chip').forEach(x=>x.classList.remove('selected'));
+    c.classList.add('selected');
+    selectedChip = v;
+  });
+  chipsBox.appendChild(c);
+});
+
+// ---------------- Betting logic ----------------
+function placeBet(key, el, label){
+  keyElements[key] = el;
+  if(spinning) return;
+  const currentTotal = totalBetAmount();
+  if(currentTotal + selectedChip > balance){
+    setMessage('餘額不足！');
+    return;
+  }
+  bets[key] = (bets[key]||0) + selectedChip;
+  updateChipDot(el, bets[key]);
+  updateTotalBetDisplay();
+}
+
+function updateChipDot(el, amount){
+  let dot = el.querySelector('.chipdot');
+  if(!dot){
+    dot = document.createElement('div');
+    dot.className = 'chipdot';
+    el.appendChild(dot);
+  }
+  dot.textContent = amount;
+}
+
+function totalBetAmount(){
+  return Object.values(bets).reduce((a,b)=>a+b,0);
+}
+
+function updateTotalBetDisplay(){
+  document.getElementById('totalBet').textContent = totalBetAmount();
+}
+
+function clearBets(){
+  bets = {};
+  document.querySelectorAll('.chipdot').forEach(d=>d.remove());
+  updateTotalBetDisplay();
+}
+
+document.getElementById('clearBtn').addEventListener('click', ()=>{
+  if(spinning) return;
+  clearBets();
+  setMessage('已清空下注。');
+});
+
+document.getElementById('repeatBtn').addEventListener('click', ()=>{
+  if(spinning) return;
+  if(!lastBets || Object.keys(lastBets).length===0){
+    setMessage('還沒有上一次的下注可以重複。');
+    return;
+  }
+  const total = Object.values(lastBets).reduce((a,b)=>a+b,0);
+  if(total > balance){
+    setMessage(`餘額不足,無法重複上次下注(需要 $${total})。`);
+    return;
+  }
+  clearBets();
+  for(const key in lastBets){
+    const amt = lastBets[key];
+    const el = keyElements[key];
+    bets[key] = amt;
+    if(el) updateChipDot(el, amt);
+  }
+  updateTotalBetDisplay();
+  setMessage(`已重複上次下注,共 $${total}。`);
+});
+
+document.getElementById('resetBtn').addEventListener('click', ()=>{
+  if(spinning) return;
+  balance = 1000;
+  clearBets();
+  document.getElementById('balance').textContent = balance;
+  setMessage('餘額已重設為 $1000。');
+});
+
+function flashBalance(){
+  const el = document.getElementById('balance');
+  el.style.transition = 'none';
+  el.style.color = '#fff';
+  requestAnimationFrame(()=>{
+    el.style.transition = 'color .6s';
+    el.style.color = 'var(--gold)';
+  });
+}
+
+function doSetBalance(){
+  // Balance can't be changed mid-spin: resolveSpin still has to settle the bets already
+  // wagered on this spin, and editing balance/bets now would corrupt that settlement.
+  if(spinning){ setMessage('轉動中,請稍後再調整餘額。'); return; }
+  const input = document.getElementById('balanceInput');
+  const raw = input.value.trim();
+  const val = Math.floor(Number(raw));
+  if(raw === '' || !Number.isFinite(val) || val < 0){
+    setMessage('請輸入有效的金額！(必須是 0 或正整數)');
+    return;
+  }
+  balance = val;
+  clearBets();
+  document.getElementById('balance').textContent = balance;
+  input.value = '';
+  flashBalance();
+  setMessage(`餘額已設定為 $${balance}。`);
+}
+
+function doAddBalance(){
+  if(spinning){ setMessage('轉動中,請稍後再調整餘額。'); return; }
+  const input = document.getElementById('balanceInput');
+  const raw = input.value.trim();
+  const val = Math.floor(Number(raw));
+  if(raw === '' || !Number.isFinite(val) || val <= 0){
+    setMessage('請輸入有效的加值金額！(必須大於 0)');
+    return;
+  }
+  balance += val;
+  document.getElementById('balance').textContent = balance;
+  input.value = '';
+  flashBalance();
+  setMessage(`已加值 $${val},目前餘額 $${balance}。`);
+}
+
+document.getElementById('setBalanceBtn').addEventListener('click', doSetBalance);
+document.getElementById('addBalanceBtn').addEventListener('click', doAddBalance);
+document.getElementById('balanceInput').addEventListener('keydown', (e)=>{
+  if(e.key === 'Enter') doSetBalance();
+});
+
+function setMessage(msg){
+  document.getElementById('message').textContent = msg;
+}
+
+// ---------------- Build wheel visual ----------------
+const wheelEl = document.getElementById('wheel');
+const N = WHEEL_ORDER.length;
+const radius = 154; // px, matches wheel size
+function buildWheel(){
+  wheelEl.innerHTML = '';
+  const cx = radius, cy = radius;
+  const svgNS = 'http://www.w3.org/2000/svg';
+  const svg = document.createElementNS(svgNS,'svg');
+  svg.setAttribute('width', radius*2);
+  svg.setAttribute('height', radius*2);
+  svg.style.position='absolute';
+  svg.style.top=0; svg.style.left=0;
+  const anglePer = 360/N;
+  for(let i=0;i<N;i++){
+    const num = WHEEL_ORDER[i];
+    const startAngle = i*anglePer - 90 - anglePer/2;
+    const endAngle = startAngle + anglePer;
+    const path = document.createElementNS(svgNS,'path');
+    const large = anglePer>180?1:0;
+    const x1 = cx + radius*Math.cos(startAngle*Math.PI/180);
+    const y1 = cy + radius*Math.sin(startAngle*Math.PI/180);
+    const x2 = cx + radius*Math.cos(endAngle*Math.PI/180);
+    const y2 = cy + radius*Math.sin(endAngle*Math.PI/180);
+    const d = `M${cx},${cy} L${x1},${y1} A${radius},${radius} 0 ${large} 1 ${x2},${y2} Z`;
+    path.setAttribute('d', d);
+    let fill = '#1a1a1a';
+    if(num==='0'||num==='00') fill = '#0d6b31';
+    else if(RED_NUMBERS.has(num)) fill = '#d1263a';
+    path.setAttribute('fill', fill);
+    path.setAttribute('stroke', '#caa25a');
+    path.setAttribute('stroke-width','1');
+    svg.appendChild(path);
+
+    // label
+    const midAngle = (startAngle+endAngle)/2;
+    const lx = cx + (radius-18)*Math.cos(midAngle*Math.PI/180);
+    const ly = cy + (radius-18)*Math.sin(midAngle*Math.PI/180);
+    const text = document.createElementNS(svgNS,'text');
+    text.setAttribute('x', lx);
+    text.setAttribute('y', ly);
+    text.setAttribute('fill', '#fff');
+    text.setAttribute('font-size','10');
+    text.setAttribute('text-anchor','middle');
+    text.setAttribute('dominant-baseline','middle');
+    text.setAttribute('transform', `rotate(${midAngle+90}, ${lx}, ${ly})`);
+    text.textContent = num;
+    svg.appendChild(text);
+  }
+  wheelEl.appendChild(svg);
+  wheelEl.style.borderRadius='50%';
+  wheelEl.style.overflow='hidden';
+}
+buildWheel();
+
+// ---------------- Spin logic ----------------
+let wheelRotation = 0;
+let ballRotation = 0;
+
+function spin(){
+  if(spinning) return;
+  const total = totalBetAmount();
+  if(total===0){ setMessage('請先下注！'); return; }
+  spinning = true;
+  document.getElementById('spinBtn').disabled = true;
+
+  // Snapshot the bets now, before the wheel animates. resolveSpin() must settle exactly
+  // what was wagered at spin time, not whatever `bets` happens to contain 4+ seconds later.
+  const betsSnapshot = { ...bets };
+  lastBets = betsSnapshot; // remembered for the "repeat last bet" button
+  const betsTotal = total;
+
+  const winIndex = Math.floor(Math.random()*N);
+  const winNumber = WHEEL_ORDER[winIndex];
+  const anglePer = 360/N;
+
+  function mod(a,m){ return ((a%m)+m)%m; }
+
+  // The wheel rotates by subtracting degrees over time, so its cumulative rotation
+  // drifts arbitrarily far from a multiple of 360. To make winIndex land exactly under
+  // the pointer (top, local slice-center angle = -90deg) we must land on an ABSOLUTE
+  // target angle (mod 360), not just subtract this spin's slice offset from whatever
+  // rotation happens to be left over from previous spins.
+  const desiredMod = mod(-winIndex*anglePer, 360);
+  const extraSpins = 5 + Math.floor(Math.random()*3);
+  const base = wheelRotation - extraSpins*360;
+  const baseMod = mod(base, 360);
+  const newWheelRotation = base - mod(baseMod - desiredMod, 360);
+  wheelEl.style.transform = `rotate(${newWheelRotation}deg)`;
+  wheelRotation = newWheelRotation;
+
+  const ballExtra = 7 + Math.floor(Math.random()*3);
+  const ballBase = ballRotation + ballExtra*360;
+  const ballBaseMod = mod(ballBase, 360);
+  const newBallRotation = ballBase + mod(desiredMod - ballBaseMod, 360);
+  const ball = document.getElementById('ball');
+  ball.style.transform = `rotate(${newBallRotation}deg) translateY(0)`;
+  ballRotation = newBallRotation;
+
+  setMessage('轉動中...');
+
+  setTimeout(()=> resolveSpin(winNumber, betsSnapshot, betsTotal), 4200);
+}
+
+function resolveSpin(winNumber, betsSnapshot, betsTotal){
+  spinning = false;
+  document.getElementById('spinBtn').disabled = false;
+
+  let winnings = 0;
+  for(const key in betsSnapshot){
+    const amt = betsSnapshot[key];
+    winnings += payout(key, amt, winNumber);
+  }
+
+  balance = balance - betsTotal + winnings;
+  document.getElementById('balance').textContent = balance;
+
+  const col = colorOf(winNumber);
+  document.getElementById('lastResult').textContent = winNumber + ' (' + (col==='green'?'綠':col==='red'?'紅':'黑') + ')';
+
+  addHistory(winNumber, col);
+
+  if(winnings>0){
+    setMessage(`🎉 開出 ${winNumber}！贏得 $${winnings}！`);
+  } else {
+    setMessage(`開出 ${winNumber}。這局沒中,再接再厲！`);
+  }
+
+  clearBets();
+
+  if(balance<=0){
+    setMessage('💸 餘額歸零！請按「重設餘額」重新開始。');
+  }
+}
+
+function addHistory(num, col){
+  history.unshift({num,col});
+  history = history.slice(0,20);
+  const box = document.getElementById('history');
+  box.innerHTML = '';
+  history.forEach(h=>{
+    const d = document.createElement('div');
+    d.className = 'hist-num';
+    d.style.background = h.col==='green'?'#0d6b31':(h.col==='red'?'#d1263a':'#1a1a1a');
+    d.textContent = h.num;
+    box.appendChild(d);
+  });
+}
+
+// payout: returns TOTAL returned (including original stake) if win, else 0
+const SPLIT_PAYOUT = {1:36, 2:18, 3:12, 4:9, 6:6};
+
+function payout(key, amt, num){
+  const isRed = RED_NUMBERS.has(num);
+  const isNumber = (typeof num === 'number');
+  const winStr = String(num);
+
+  if(key==='nZ') return (num==='0') ? amt*36 : 0;
+  if(key==='nDZ') return (num==='00') ? amt*36 : 0;
+  if(key.startsWith('n') && isNumber){
+    const n = parseInt(key.slice(1));
+    return (n===num) ? amt*36 : 0;
+  }
+  if(key.startsWith('split_') || key.startsWith('corner_') || key.startsWith('street_') || key.startsWith('sixline_')){
+    const nums = hotspotNumbers[key] || [];
+    if(!nums.includes(winStr)) return 0;
+    return amt * SPLIT_PAYOUT[nums.length];
+  }
+  if(key.startsWith('col')){ // columns col0=3rd(top row nums %3==0), col1=2nd, col2=1st -- our order pushed as 3rd,2nd,1st
+    if(!isNumber) return 0;
+    const mod = num % 3;
+    // top row numbers (3,6,9...) => mod 0 => '3rd' label first pushed = col0
+    const colIdx = mod===0?0:(mod===2?1:2);
+    return (key==='col'+colIdx) ? amt*3 : 0;
+  }
+  if(key.startsWith('d')){
+    if(!isNumber) return 0;
+    const idx = key==='d0'?[1,12]:key==='d1'?[13,24]:[25,36];
+    return (num>=idx[0] && num<=idx[1]) ? amt*3 : 0;
+  }
+  if(key==='low') return (isNumber && num>=1 && num<=18) ? amt*2 : 0;
+  if(key==='high') return (isNumber && num>=19 && num<=36) ? amt*2 : 0;
+  if(key==='even') return (isNumber && num!==0 && num%2===0) ? amt*2 : 0;
+  if(key==='odd') return (isNumber && num%2===1) ? amt*2 : 0;
+  if(key==='red') return (isNumber && isRed) ? amt*2 : 0;
+  if(key==='black') return (isNumber && !isRed) ? amt*2 : 0;
+  return 0;
+}
+
+document.getElementById('spinBtn').addEventListener('click', spin);
+</script>
+</body>
+</html>
