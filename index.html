@@ -35,56 +35,75 @@
     justify-content:center;
     align-items:flex-start;
   }
-  /* ---------- Wheel ---------- */
+  /* ---------- Wheel (3D) ---------- */
+  .wheel-stage{
+    width:360px;
+    height:322px;
+    flex-shrink:0;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    perspective:1150px;
+    perspective-origin:50% 42%;
+  }
+  /* Tilted so the wheel reads as a real bowl seen from the player's side.
+     Everything inside shares this local space, so the ball/pointer stay aligned. */
   .wheel-box{
     position:relative;
     width:340px;
     height:340px;
-    flex-shrink:0;
+    transform:rotateX(34deg);
+    transform-style:preserve-3d;
   }
-  .wheel-outer{
+  .wheel-cast-shadow{
     position:absolute;
-    inset:0;
+    left:50%; top:54%;
+    width:350px; height:350px;
+    margin:-175px 0 0 -175px;
     border-radius:50%;
-    background:radial-gradient(circle at 50% 45%, #caa25a, #8a6a2f 70%, #5c4620 100%);
-    box-shadow:0 0 0 6px #3d2f14, 0 10px 30px rgba(0,0,0,.6);
+    background:radial-gradient(circle, rgba(0,0,0,.6) 52%, rgba(0,0,0,0) 72%);
+    filter:blur(12px);
+    transform:translateZ(-26px);
   }
+  /* Static bowl: rim, ball track, deflector diamonds — these never rotate. */
+  .wheel-frame{ position:absolute; inset:0; }
+  /* Rotor: pockets, frets, cone, turret — this is what spins. */
   .wheel{
-    position:absolute;
-    top:16px;left:16px;right:16px;bottom:16px;
-    border-radius:50%;
+    position:absolute; inset:0;
     transition: transform 4s cubic-bezier(.17,.67,.16,1);
-    box-shadow: inset 0 0 20px rgba(0,0,0,.6);
   }
-  .hub{
-    position:absolute;
-    top:50%;left:50%;
-    width:60px;height:60px;
-    transform:translate(-50%,-50%);
-    background:radial-gradient(circle, #f0d78c, #a4802c 70%, #6b5217);
-    border-radius:50%;
-    box-shadow:0 4px 10px rgba(0,0,0,.6);
+  /* Static specular sheen layered over everything so the highlight
+     stays put while the rotor turns underneath it. */
+  .wheel-gloss{
+    position:absolute; inset:0;
+    pointer-events:none;
+    z-index:7;
   }
   .pointer{
     position:absolute;
-    top:-4px;left:50%;
+    top:-16px;left:50%;
     width:0;height:0;
     transform:translateX(-50%);
-    border-left:12px solid transparent;
-    border-right:12px solid transparent;
-    border-top:20px solid var(--gold);
-    filter:drop-shadow(0 2px 3px rgba(0,0,0,.6));
-    z-index:5;
+    border-left:11px solid transparent;
+    border-right:11px solid transparent;
+    border-top:22px solid var(--gold);
+    filter:drop-shadow(0 3px 4px rgba(0,0,0,.7));
+    z-index:9;
   }
   .ball{
     position:absolute;
-    width:12px;height:12px;
+    width:13px;height:13px;
     border-radius:50%;
-    background:radial-gradient(circle at 30% 30%, #fff, #ccc 60%, #888);
-    top:22px;left:50%;
-    margin-left:-6px;
+    background:
+      radial-gradient(circle at 32% 28%, #fff 0%, #fdfdfd 18%, #d2d2d6 52%, #9a9aa2 78%, #6e6e77 100%);
+    box-shadow:
+      0 3px 5px rgba(0,0,0,.65),
+      inset -1px -2px 3px rgba(0,0,0,.35),
+      inset 1px 1px 2px rgba(255,255,255,.9);
+    top:20px;left:50%;
+    margin-left:-6.5px;
     transition: transform 4s cubic-bezier(.17,.67,.16,1);
-    z-index:6;
+    z-index:8;
   }
   /* ---------- Table ---------- */
   .table-wrap{
@@ -296,12 +315,15 @@
 <div id="message">選擇籌碼並在桌上下注,然後按 SPIN！</div>
 
 <div class="layout">
-  <div class="wheel-box">
-    <div class="pointer"></div>
-    <div class="wheel-outer"></div>
-    <div class="wheel" id="wheel"></div>
-    <div class="ball" id="ball"></div>
-    <div class="hub"></div>
+  <div class="wheel-stage">
+    <div class="wheel-box">
+      <div class="wheel-cast-shadow"></div>
+      <div class="wheel-frame" id="wheelFrame"></div>
+      <div class="wheel" id="wheel"></div>
+      <div class="ball" id="ball"></div>
+      <div class="wheel-gloss" id="wheelGloss"></div>
+      <div class="pointer"></div>
+    </div>
   </div>
 
   <div class="table-wrap">
@@ -680,58 +702,224 @@ function setMessage(msg){
 
 // ---------------- Build wheel visual ----------------
 const wheelEl = document.getElementById('wheel');
+const frameEl = document.getElementById('wheelFrame');
+const glossEl = document.getElementById('wheelGloss');
 const N = WHEEL_ORDER.length;
-const radius = 154; // px, matches wheel size
+
+// All three wheel layers share one 340x340 coordinate space centred on (170,170),
+// so the rotor lines up with the static bowl drawn beneath it.
+const SVG_NS = 'http://www.w3.org/2000/svg';
+const SIZE = 340, CX = 170, CY = 170;
+const R_RIM_OUT = 168, R_RIM_IN = 155;
+const R_TRACK_OUT = 152, R_TRACK_IN = 134;   // ball rides the middle of this band
+const R_POCKET_OUT = 132, R_POCKET_IN = 88;
+const R_CONE = 88, R_TURRET = 30;
+
+function el(tag, attrs){
+  const e = document.createElementNS(SVG_NS, tag);
+  for(const k in attrs) e.setAttribute(k, attrs[k]);
+  return e;
+}
+function newSvg(){
+  const s = el('svg', {viewBox:`0 0 ${SIZE} ${SIZE}`, width:'100%', height:'100%'});
+  s.style.display = 'block';
+  return s;
+}
+function polar(r, deg){
+  const a = deg*Math.PI/180;
+  return [CX + r*Math.cos(a), CY + r*Math.sin(a)];
+}
+// annular sector, used for the number pockets
+function sectorPath(ro, ri, a0, a1){
+  const [x1o,y1o] = polar(ro,a0), [x2o,y2o] = polar(ro,a1);
+  const [x2i,y2i] = polar(ri,a1), [x1i,y1i] = polar(ri,a0);
+  const large = (a1-a0) > 180 ? 1 : 0;
+  return `M${x1o},${y1o} A${ro},${ro} 0 ${large} 1 ${x2o},${y2o}`
+       + ` L${x2i},${y2i} A${ri},${ri} 0 ${large} 0 ${x1i},${y1i} Z`;
+}
+function grad(defs, id, type, attrs, stops){
+  const g = el(type, Object.assign({id}, attrs));
+  stops.forEach(([off,color])=>g.appendChild(el('stop',{offset:off,'stop-color':color})));
+  defs.appendChild(g);
+}
+
+// ---- static bowl: outer rim, ball track, deflector diamonds ----
+function buildFrame(){
+  frameEl.innerHTML = '';
+  const svg = newSvg();
+  const defs = el('defs', {});
+
+  grad(defs,'rimGrad','radialGradient',{cx:'42%',cy:'26%',r:'78%'},[
+    ['0','#f7e6b0'],['0.35','#d3ae66'],['0.66','#9b7a38'],['0.86','#6b5222'],['1','#3f3013']
+  ]);
+  grad(defs,'goldRing','linearGradient',{x1:'0',y1:'0',x2:'0',y2:'1'},[
+    ['0','#ffeeb8'],['0.45','#c9a75d'],['1','#7a5c22']
+  ]);
+  grad(defs,'trackGrad','radialGradient',{cx:'42%',cy:'28%',r:'76%'},[
+    ['0','#7d6a44'],['0.5','#52432a'],['1','#2b2214']
+  ]);
+  grad(defs,'diamondGrad','linearGradient',{x1:'0',y1:'0',x2:'0',y2:'1'},[
+    ['0','#ffffff'],['0.45','#c8ccd2'],['1','#7d828a']
+  ]);
+  svg.appendChild(defs);
+
+  // outer rim body + its edges
+  svg.appendChild(el('circle',{cx:CX,cy:CY,r:R_RIM_OUT,fill:'url(#rimGrad)'}));
+  svg.appendChild(el('circle',{cx:CX,cy:CY,r:R_RIM_OUT-1,fill:'none',
+    stroke:'rgba(0,0,0,.55)','stroke-width':'2'}));
+  svg.appendChild(el('circle',{cx:CX,cy:CY,r:(R_RIM_OUT+R_RIM_IN)/2,fill:'none',
+    stroke:'url(#goldRing)','stroke-width':'2.5',opacity:'.85'}));
+
+  // ball track, sunk below the rim
+  svg.appendChild(el('circle',{cx:CX,cy:CY,r:R_TRACK_OUT,fill:'url(#trackGrad)'}));
+  svg.appendChild(el('circle',{cx:CX,cy:CY,r:R_TRACK_OUT,fill:'none',
+    stroke:'rgba(0,0,0,.6)','stroke-width':'5'}));
+
+  // deflector diamonds sitting on the upper slope
+  for(let i=0;i<8;i++){
+    const ang = -90 + i*45;
+    const [dx,dy] = polar(147, ang);
+    const d = el('path',{
+      d:'M0,-8 L5,0 L0,8 L-5,0 Z',
+      fill:'url(#diamondGrad)',
+      stroke:'rgba(0,0,0,.45)','stroke-width':'.8',
+      transform:`translate(${dx},${dy}) rotate(${ang+90})`
+    });
+    svg.appendChild(d);
+  }
+
+  // shadow where the track drops into the rotor
+  svg.appendChild(el('circle',{cx:CX,cy:CY,r:R_TRACK_IN,fill:'none',
+    stroke:'rgba(0,0,0,.55)','stroke-width':'9'}));
+
+  frameEl.appendChild(svg);
+}
+
+// ---- rotor: pockets, frets, cone, turret (this is what spins) ----
 function buildWheel(){
   wheelEl.innerHTML = '';
-  const cx = radius, cy = radius;
-  const svgNS = 'http://www.w3.org/2000/svg';
-  const svg = document.createElementNS(svgNS,'svg');
-  svg.setAttribute('width', radius*2);
-  svg.setAttribute('height', radius*2);
-  svg.style.position='absolute';
-  svg.style.top=0; svg.style.left=0;
+  const svg = newSvg();
+  const defs = el('defs', {});
+
+  // darkens both edges of the pocket ring so it reads as recessed
+  const inner = (R_POCKET_IN/R_POCKET_OUT).toFixed(3);
+  grad(defs,'pocketDepth','radialGradient',{cx:'50%',cy:'50%',r:'50%'},[
+    ['0','rgba(0,0,0,.5)'],[inner,'rgba(0,0,0,.5)'],
+    [(+inner+0.06).toFixed(3),'rgba(0,0,0,0)'],
+    ['0.92','rgba(0,0,0,0)'],['1','rgba(0,0,0,.45)']
+  ]);
+  grad(defs,'coneGrad','radialGradient',{cx:'38%',cy:'28%',r:'74%'},[
+    ['0','#f6ebc4'],['0.34','#d8b972'],['0.68','#9a7a38'],['1','#54401a']
+  ]);
+  grad(defs,'turretGrad','radialGradient',{cx:'36%',cy:'26%',r:'72%'},[
+    ['0','#fff8dc'],['0.4','#e0c078'],['0.75','#a3822f'],['1','#5d4718']
+  ]);
+  grad(defs,'turretCore','radialGradient',{cx:'34%',cy:'24%',r:'70%'},[
+    ['0','#ffffff'],['0.45','#f0dda2'],['1','#b08f3c']
+  ]);
+  svg.appendChild(defs);
+
   const anglePer = 360/N;
+
+  // number pockets
   for(let i=0;i<N;i++){
     const num = WHEEL_ORDER[i];
-    const startAngle = i*anglePer - 90 - anglePer/2;
-    const endAngle = startAngle + anglePer;
-    const path = document.createElementNS(svgNS,'path');
-    const large = anglePer>180?1:0;
-    const x1 = cx + radius*Math.cos(startAngle*Math.PI/180);
-    const y1 = cy + radius*Math.sin(startAngle*Math.PI/180);
-    const x2 = cx + radius*Math.cos(endAngle*Math.PI/180);
-    const y2 = cy + radius*Math.sin(endAngle*Math.PI/180);
-    const d = `M${cx},${cy} L${x1},${y1} A${radius},${radius} 0 ${large} 1 ${x2},${y2} Z`;
-    path.setAttribute('d', d);
-    let fill = '#1a1a1a';
-    if(num==='0'||num==='00') fill = '#0d6b31';
-    else if(RED_NUMBERS.has(num)) fill = '#d1263a';
-    path.setAttribute('fill', fill);
-    path.setAttribute('stroke', '#caa25a');
-    path.setAttribute('stroke-width','1');
-    svg.appendChild(path);
-
-    // label
-    const midAngle = (startAngle+endAngle)/2;
-    const lx = cx + (radius-18)*Math.cos(midAngle*Math.PI/180);
-    const ly = cy + (radius-18)*Math.sin(midAngle*Math.PI/180);
-    const text = document.createElementNS(svgNS,'text');
-    text.setAttribute('x', lx);
-    text.setAttribute('y', ly);
-    text.setAttribute('fill', '#fff');
-    text.setAttribute('font-size','10');
-    text.setAttribute('text-anchor','middle');
-    text.setAttribute('dominant-baseline','middle');
-    text.setAttribute('transform', `rotate(${midAngle+90}, ${lx}, ${ly})`);
-    text.textContent = num;
-    svg.appendChild(text);
+    const a0 = i*anglePer - 90 - anglePer/2;
+    const a1 = a0 + anglePer;
+    let fill = '#141414';
+    if(num==='0' || num==='00') fill = '#0c6b30';
+    else if(RED_NUMBERS.has(num)) fill = '#c81f33';
+    svg.appendChild(el('path',{d:sectorPath(R_POCKET_OUT,R_POCKET_IN,a0,a1),fill}));
   }
+
+  // recessed shading over the whole ring (cone is drawn on top of the middle)
+  svg.appendChild(el('circle',{cx:CX,cy:CY,r:R_POCKET_OUT,fill:'url(#pocketDepth)'}));
+
+  // metal frets between pockets
+  for(let i=0;i<N;i++){
+    const a = i*anglePer - 90 - anglePer/2;
+    const [x1,y1] = polar(R_POCKET_IN-2, a);
+    const [x2,y2] = polar(R_POCKET_OUT+1, a);
+    svg.appendChild(el('line',{x1,y1,x2,y2,stroke:'#83878e',
+      'stroke-width':'2.6','stroke-linecap':'round'}));
+    svg.appendChild(el('line',{x1,y1,x2,y2,stroke:'#e9edf2',
+      'stroke-width':'1','stroke-linecap':'round',opacity:'.85'}));
+  }
+
+  // pocket numbers
+  for(let i=0;i<N;i++){
+    const num = WHEEL_ORDER[i];
+    const mid = i*anglePer - 90;
+    const [lx,ly] = polar(110, mid);
+    const t = el('text',{x:lx,y:ly,fill:'#fff','font-size':'11',
+      'font-weight':'bold','text-anchor':'middle','dominant-baseline':'middle',
+      stroke:'rgba(0,0,0,.55)','stroke-width':'.6','paint-order':'stroke',
+      transform:`rotate(${mid+90}, ${lx}, ${ly})`});
+    t.textContent = num;
+    svg.appendChild(t);
+  }
+
+  // central cone with spokes and turret
+  svg.appendChild(el('circle',{cx:CX,cy:CY,r:R_CONE,fill:'url(#coneGrad)'}));
+  for(let i=0;i<8;i++){
+    const a = i*45;
+    const [x1,y1] = polar(R_TURRET+2, a);
+    const [x2,y2] = polar(R_CONE-3, a);
+    svg.appendChild(el('line',{x1,y1,x2,y2,stroke:'rgba(255,255,255,.16)','stroke-width':'5'}));
+    svg.appendChild(el('line',{x1,y1,x2,y2,stroke:'rgba(0,0,0,.18)','stroke-width':'1.2'}));
+  }
+  svg.appendChild(el('circle',{cx:CX,cy:CY,r:R_CONE,fill:'none',
+    stroke:'rgba(0,0,0,.45)','stroke-width':'2'}));
+
+  svg.appendChild(el('circle',{cx:CX,cy:CY,r:R_TURRET,fill:'url(#turretGrad)'}));
+  svg.appendChild(el('circle',{cx:CX,cy:CY,r:R_TURRET,fill:'none',
+    stroke:'rgba(0,0,0,.4)','stroke-width':'1.5'}));
+  svg.appendChild(el('circle',{cx:CX,cy:CY,r:18,fill:'url(#turretCore)'}));
+  svg.appendChild(el('ellipse',{cx:CX-6,cy:CY-8,rx:9,ry:5,
+    fill:'rgba(255,255,255,.55)',transform:`rotate(-28, ${CX-6}, ${CY-8})`}));
+
   wheelEl.appendChild(svg);
-  wheelEl.style.borderRadius='50%';
-  wheelEl.style.overflow='hidden';
 }
+
+// ---- static sheen drawn over everything so the highlight never spins ----
+function buildGloss(){
+  glossEl.innerHTML = '';
+  const svg = newSvg();
+  const defs = el('defs', {});
+
+  grad(defs,'glossGrad','radialGradient',{cx:'50%',cy:'50%',r:'50%'},[
+    ['0','rgba(255,255,255,.34)'],['0.45','rgba(255,255,255,.12)'],['1','rgba(255,255,255,0)']
+  ]);
+  grad(defs,'vignette','radialGradient',{cx:'50%',cy:'56%',r:'62%'},[
+    ['0','rgba(0,0,0,0)'],['0.6','rgba(0,0,0,0)'],
+    ['0.85','rgba(0,0,0,.16)'],['1','rgba(0,0,0,.46)']
+  ]);
+  const clip = el('clipPath',{id:'wheelClip'});
+  clip.appendChild(el('circle',{cx:CX,cy:CY,r:R_RIM_OUT}));
+  defs.appendChild(clip);
+
+  const blur = el('filter',{id:'sheenBlur'});
+  blur.appendChild(el('feGaussianBlur',{stdDeviation:'4'}));
+  defs.appendChild(blur);
+  svg.appendChild(defs);
+
+  const g = el('g',{'clip-path':'url(#wheelClip)'});
+  g.appendChild(el('circle',{cx:CX,cy:CY,r:R_RIM_OUT,fill:'url(#vignette)'}));
+  g.appendChild(el('ellipse',{cx:118,cy:86,rx:112,ry:68,fill:'url(#glossGrad)',
+    transform:'rotate(-24, 118, 86)'}));
+  // specular streak along the top of the rim
+  const [sx,sy] = polar(161, 200), [ex,ey] = polar(161, 325);
+  g.appendChild(el('path',{d:`M${sx},${sy} A161,161 0 0 1 ${ex},${ey}`,fill:'none',
+    stroke:'rgba(255,255,255,.4)','stroke-width':'7','stroke-linecap':'round',
+    filter:'url(#sheenBlur)'}));
+  svg.appendChild(g);
+
+  glossEl.appendChild(svg);
+}
+
+buildFrame();
 buildWheel();
+buildGloss();
 
 // ---------------- Spin logic ----------------
 let wheelRotation = 0;
