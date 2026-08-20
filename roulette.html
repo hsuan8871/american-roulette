@@ -1,0 +1,1750 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>American Roulette</title>
+<meta name="description" content="A single-file American roulette game: full betting table with splits, corners, streets and six-lines, a 3D wheel, and a live odds panel showing the exact probability and payout of every outcome.">
+<meta name="theme-color" content="#0b3d1e">
+<meta property="og:type" content="website">
+<meta property="og:title" content="American Roulette">
+<meta property="og:description" content="Full American roulette table, 3D wheel, and a live odds panel showing the probability and payout of every outcome.">
+<meta property="og:url" content="https://hsuan8871.github.io/american-roulette/roulette.html">
+<meta property="og:image" content="https://hsuan8871.github.io/american-roulette/preview.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Ccircle cx='16' cy='16' r='15' fill='%23c9a75d'/%3E%3Ccircle cx='16' cy='16' r='11.5' fill='%23141414'/%3E%3Cpath d='M16 4.5a11.5 11.5 0 0 1 9.96 5.75L16 16z' fill='%23c81f33'/%3E%3Cpath d='M25.96 21.75a11.5 11.5 0 0 1-19.92 0L16 16z' fill='%23c81f33'/%3E%3Ccircle cx='16' cy='16' r='4.2' fill='%23e8c165'/%3E%3C/svg%3E">
+<style>
+  :root{
+    --green:#0b3d1e;
+    --felt:#0f5c2e;
+    --red:#d1263a;
+    --black:#1a1a1a;
+    --gold:#e8c165;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0;
+    min-height:100vh;
+    background:radial-gradient(ellipse at center, #145c33 0%, #0b3d1e 60%, #062713 100%);
+    font-family:'Trebuchet MS', Arial, sans-serif;
+    color:#fff;
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    padding:20px;
+  }
+  h1{
+    letter-spacing:4px;
+    text-shadow:0 2px 6px rgba(0,0,0,.6);
+    margin:6px 0 18px;
+  }
+  .lobby-link{
+    align-self:flex-start;
+    margin-left:4px;
+    color:#c8d6cb;
+    font-size:13px;
+    text-decoration:none;
+    opacity:.85;
+  }
+  .lobby-link:hover{ color:#fff; opacity:1; text-decoration:underline; }
+  .layout{
+    display:flex;
+    gap:30px;
+    flex-wrap:wrap;
+    justify-content:center;
+    align-items:flex-start;
+    width:100%;
+    max-width:100%;
+  }
+  /* ---------- Wheel (3D) ---------- */
+  .wheel-stage{
+    width:360px;
+    height:322px;
+    flex-shrink:0;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    perspective:1150px;
+    perspective-origin:50% 42%;
+  }
+  /* Tilted so the wheel reads as a real bowl seen from the player's side.
+     Everything inside shares this local space, so the ball/pointer stay aligned. */
+  .wheel-box{
+    position:relative;
+    width:340px;
+    height:340px;
+    transform:rotateX(34deg);
+    transform-style:preserve-3d;
+  }
+  .wheel-cast-shadow{
+    position:absolute;
+    left:50%; top:54%;
+    width:350px; height:350px;
+    margin:-175px 0 0 -175px;
+    border-radius:50%;
+    background:radial-gradient(circle, rgba(0,0,0,.6) 52%, rgba(0,0,0,0) 72%);
+    filter:blur(12px);
+    transform:translateZ(-26px);
+  }
+  /* Static bowl: rim, ball track, deflector diamonds — these never rotate. */
+  .wheel-frame{ position:absolute; inset:0; }
+  /* Rotor: pockets, frets, cone, turret — this is what spins. */
+  .wheel{
+    position:absolute; inset:0;
+    transition: transform 4.2s cubic-bezier(.17,.67,.16,1);
+  }
+  /* Static specular sheen layered over everything so the highlight
+     stays put while the rotor turns underneath it. */
+  .wheel-gloss{
+    position:absolute; inset:0;
+    pointer-events:none;
+    z-index:7;
+  }
+  .pointer{
+    position:absolute;
+    top:-16px;left:50%;
+    width:0;height:0;
+    transform:translateX(-50%);
+    border-left:11px solid transparent;
+    border-right:11px solid transparent;
+    border-top:22px solid var(--gold);
+    filter:drop-shadow(0 3px 4px rgba(0,0,0,.7));
+    z-index:9;
+  }
+  .ball{
+    position:absolute;
+    width:13px;height:13px;
+    border-radius:50%;
+    background:
+      radial-gradient(circle at 32% 28%, #fff 0%, #fdfdfd 18%, #d2d2d6 52%, #9a9aa2 78%, #6e6e77 100%);
+    box-shadow:
+      0 3px 5px rgba(0,0,0,.65),
+      inset -1px -2px 3px rgba(0,0,0,.35),
+      inset 1px 1px 2px rgba(255,255,255,.9);
+    top:20px;left:50%;
+    margin-left:-6.5px;
+    /* Origin sits on the WHEEL's centre (170 - 20 = 150px below the ball's own
+       top edge), so rotate() orbits the ball around the wheel instead of
+       spinning it in place. The spin is driven frame by frame in JS. */
+    transform-origin:50% 150px;
+    z-index:8;
+  }
+  /* ---------- Table ---------- */
+  .table-wrap{
+    background:var(--felt);
+    border:6px solid #3d2f14;
+    border-radius:12px;
+    padding:14px;
+    box-shadow:0 10px 30px rgba(0,0,0,.5);
+  }
+  .grid{
+    display:grid;
+    grid-template-columns: 23px 23px repeat(12, 46px) 50px;
+    grid-template-rows: repeat(3, 46px);
+    gap:2px;
+    position:relative;
+  }
+  .cell{
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    font-weight:bold;
+    font-size:15px;
+    border-radius:3px;
+    cursor:pointer;
+    user-select:none;
+    position:relative;
+    transition:filter .15s;
+  }
+  .cell:hover{filter:brightness(1.25);}
+  .red{background:var(--red);}
+  .black{background:var(--black);}
+  .green{background:#0d6b31; border:1px solid #1a9146;}
+  .zero-cell{
+    grid-row: 1 / span 3;
+    writing-mode:vertical-rl;
+    font-size:18px;
+  }
+  #overlay{
+    position:absolute;
+    inset:0;
+    pointer-events:none;
+    z-index:10;
+  }
+  .hotspot{
+    position:absolute;
+    width:16px;height:16px;
+    margin:-8px 0 0 -8px;
+    border-radius:50%;
+    background:rgba(255,255,255,0);
+    pointer-events:auto;
+    cursor:pointer;
+  }
+  .hotspot:hover{
+    background:rgba(255,255,255,.4);
+    box-shadow:0 0 6px 3px rgba(255,255,255,.5);
+  }
+  .outside{
+    font-size:13px;
+    background:#0c4a24;
+    border:1px solid #157a3c;
+  }
+  .col2to1{ grid-column: 14; }
+  .bottom-row{
+    display:grid;
+    grid-template-columns: 46px repeat(3, 552px/3) 50px;
+    margin-top:2px;
+  }
+  .dozens{
+    display:grid;
+    grid-template-columns: repeat(3, 1fr);
+    grid-column: 2 / span 12;
+    gap:2px;
+  }
+  .evens{
+    display:grid;
+    grid-template-columns: repeat(6, 1fr);
+    grid-column: 2 / span 12;
+    gap:2px;
+    margin-top:2px;
+  }
+  .chipdot{
+    position:absolute;
+    top:50%; left:50%;
+    transform:translate(-50%,-50%);
+    width:22px;height:22px;
+    border-radius:50%;
+    background:var(--gold);
+    color:#3a2d05;
+    font-size:10px;
+    display:flex;align-items:center;justify-content:center;
+    font-weight:bold;
+    box-shadow:0 2px 4px rgba(0,0,0,.5);
+    border:2px solid #7a5c12;
+    pointer-events:none;
+    z-index:20;
+  }
+  /* A spot with less than the table minimum can't be spun yet — flagged so the
+     player notices before hitting SPIN, not after it gets rejected. */
+  .chipdot.below-min{
+    background:#3a2d05;
+    color:#e8c165;
+    border-color:#f2706f;
+    box-shadow:0 0 0 2px rgba(242,112,111,.55), 0 2px 4px rgba(0,0,0,.5);
+  }
+  /* ---------- Odds panel ---------- */
+  .odds-panel{
+    width:252px;
+    flex-shrink:0;
+    align-self:stretch;
+    background:rgba(0,0,0,.42);
+    border:2px solid #3d2f14;
+    border-radius:12px;
+    padding:14px 16px;
+    box-shadow:0 10px 30px rgba(0,0,0,.45);
+  }
+  .odds-title{
+    font-size:15px; font-weight:bold; color:var(--gold);
+    letter-spacing:1px; margin-bottom:3px;
+  }
+  .odds-sub{ font-size:12px; color:#b9b9b9; margin-bottom:12px; }
+  .odds-empty{ font-size:13px; color:#a9a9a9; line-height:1.7; }
+  .odds-row{ margin-bottom:11px; }
+  .odds-head{ display:flex; justify-content:space-between; align-items:baseline; }
+  .odds-label{ font-weight:bold; font-size:14px; }
+  .odds-pct{ font-weight:bold; font-size:14px; }
+  .odds-meta{ font-size:11px; color:#aaa; margin-top:2px; }
+  .odds-bar{
+    height:6px; border-radius:3px; margin-top:4px;
+    background:rgba(255,255,255,.12); overflow:hidden;
+  }
+  .odds-bar span{ display:block; height:100%; border-radius:3px; }
+  .odds-row.win .odds-label, .odds-row.win .odds-pct{ color:#5ed67c; }
+  .odds-row.even .odds-label, .odds-row.even .odds-pct{ color:#e8c165; }
+  .odds-row.lose .odds-label, .odds-row.lose .odds-pct{ color:#f2706f; }
+  .odds-ev{
+    margin-top:13px; padding-top:11px;
+    border-top:1px solid rgba(255,255,255,.16);
+    font-size:12px; color:#c6c6c6; line-height:1.6;
+  }
+  .odds-ev b{ color:#fff; font-size:13px; }
+  .risk-box{
+    margin-top:13px; padding-top:12px;
+    border-top:1px solid rgba(255,255,255,.16);
+  }
+  .risk-title{ font-size:13px; font-weight:bold; color:var(--gold); margin-bottom:6px; }
+  .risk-verdict{ font-size:14px; font-weight:bold; margin-bottom:6px; }
+  .risk-line{ font-size:11.5px; color:#ccc; line-height:1.6; }
+  .risk-note{ font-size:10.5px; color:#8f8f8f; line-height:1.55; margin-top:7px; }
+  /* ---------- Controls ---------- */
+  .controls{
+    margin-top:20px;
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    gap:12px;
+  }
+  .chips{
+    display:flex;
+    gap:10px;
+  }
+  .chip{
+    width:52px;height:52px;
+    border-radius:50%;
+    border:3px dashed #fff;
+    display:flex;align-items:center;justify-content:center;
+    font-weight:bold;
+    cursor:pointer;
+    color:#fff;
+    box-shadow:0 4px 8px rgba(0,0,0,.5);
+    transition:transform .1s;
+  }
+  .chip.selected{ transform:scale(1.15); box-shadow:0 0 0 3px #fff, 0 4px 10px rgba(0,0,0,.6); }
+  .chip:hover{transform:scale(1.08);}
+  .row{
+    display:flex;
+    gap:14px;
+    align-items:center;
+  }
+  button.action{
+    padding:10px 22px;
+    border:none;
+    border-radius:8px;
+    font-size:16px;
+    font-weight:bold;
+    cursor:pointer;
+    background:var(--gold);
+    color:#3a2d05;
+    box-shadow:0 4px 8px rgba(0,0,0,.4);
+  }
+  button.action:disabled{opacity:.5; cursor:not-allowed;}
+  button.secondary{
+    background:#444;
+    color:#fff;
+  }
+  .stats{
+    display:flex;
+    gap:26px;
+    align-items:center;
+    flex-wrap:wrap;
+    font-size:16px;
+    background:rgba(0,0,0,.35);
+    padding:10px 20px;
+    border-radius:8px;
+  }
+  .stats b{color:var(--gold);}
+  .balance-editor{
+    display:flex;
+    gap:8px;
+    align-items:center;
+  }
+  .balance-editor input{
+    width:100px;
+    padding:6px 8px;
+    border-radius:6px;
+    border:1px solid #666;
+    background:#111;
+    color:#fff;
+    font-size:14px;
+  }
+  button.action.small{
+    padding:6px 12px;
+    font-size:13px;
+  }
+  #message{
+    min-height:26px;
+    font-size:18px;
+    font-weight:bold;
+    text-shadow:0 2px 4px rgba(0,0,0,.6);
+  }
+  #history{
+    display:flex;
+    gap:6px;
+    flex-wrap:wrap;
+    max-width:600px;
+    justify-content:center;
+  }
+  .hist-num{
+    width:26px;height:26px;
+    border-radius:50%;
+    display:flex;align-items:center;justify-content:center;
+    font-size:11px;
+    font-weight:bold;
+  }
+  .bet-hint{
+    font-size:12px;
+    color:#a9b8ac;
+    text-align:center;
+    max-width:520px;
+    margin-top:-4px;
+  }
+  /* ---------- Accessibility ---------- */
+  .cell:focus-visible, .hotspot:focus-visible,
+  .chip:focus-visible, button:focus-visible{
+    outline:3px solid #6cf;
+    outline-offset:2px;
+    z-index:30;
+  }
+  .sr-only{
+    position:absolute; width:1px; height:1px;
+    padding:0; margin:-1px; overflow:hidden;
+    clip:rect(0,0,0,0); white-space:nowrap; border:0;
+  }
+  @media (prefers-reduced-motion: reduce){
+    .wheel{ transition-duration:.01ms !important; }
+  }
+  /* ---------- Responsive ---------- */
+  /* The table is a fixed-width grid, so below its natural width it scrolls
+     sideways inside its own container rather than forcing the page to. */
+  /* min-width:0 defeats the default `min-width:auto` on flex items, which would
+     otherwise let the fixed-width table stretch the layout past the viewport
+     and get clipped instead of scrolling. */
+  .table-scroll{
+    max-width:100%; min-width:0;
+    overflow-x:auto;
+    padding-bottom:6px;
+  }
+  .odds-panel{ min-width:0; }
+  @media (max-width: 1180px){
+    .odds-panel{ width:100%; max-width:680px; align-self:auto; }
+  }
+  @media (max-width: 760px){
+    body{ padding:12px 8px; }
+    h1{ font-size:23px; letter-spacing:2px; margin:2px 0 12px; }
+    .layout{ gap:16px; }
+    .stats{ gap:10px 16px; font-size:14px; padding:8px 12px; justify-content:center; }
+    .balance-editor input{ width:84px; }
+    #message{ font-size:15px; }
+    /* Uniform scale keeps the ball, pointer and pockets in exact alignment. */
+    .wheel-stage{ width:300px; height:262px; }
+    .wheel-box{ transform:rotateX(34deg) scale(.84); }
+    .grid{
+      grid-template-columns: 20px 20px repeat(12, 38px) 44px;
+      grid-template-rows: repeat(3, 38px);
+    }
+    .cell{ font-size:13px; }
+    .zero-cell{ font-size:15px; }
+    .outside{ font-size:11px; }
+    .table-wrap{ padding:10px; }
+    .chip{ width:44px; height:44px; font-size:13px; }
+    .chips{ gap:7px; }
+    button.action{ padding:9px 15px; font-size:14px; }
+    .row{ gap:8px; flex-wrap:wrap; justify-content:center; }
+  }
+</style>
+</head>
+<body>
+
+<a href="index.html" class="lobby-link" data-i18n="backToLobby">← 選擇遊戲</a>
+<h1>🎡 AMERICAN ROULETTE</h1>
+
+<div class="stats">
+  <div><span data-i18n="balance">餘額</span> $<b id="balance">1000</b></div>
+  <div><span data-i18n="betLabel">本輪下注</span> $<b id="totalBet">0</b></div>
+  <div><span data-i18n="lastLabel">上局結果</span> <b id="lastResult">-</b></div>
+  <div class="balance-editor">
+    <input type="number" id="balanceInput" data-i18n-ph="amountPh" placeholder="輸入金額" min="0" step="1">
+    <button class="action secondary small" id="setBalanceBtn" data-i18n="setBalance">設定餘額</button>
+    <button class="action secondary small" id="addBalanceBtn" data-i18n="addBalance">+ 加值</button>
+  </div>
+  <button class="action secondary small" id="langBtn">English</button>
+  <button class="action secondary small" id="muteBtn" aria-pressed="false">🔊</button>
+</div>
+
+<div id="message" role="status" aria-live="polite"></div>
+
+<div class="layout">
+  <div class="wheel-stage">
+    <div class="wheel-box">
+      <div class="wheel-cast-shadow"></div>
+      <div class="wheel-frame" id="wheelFrame"></div>
+      <div class="wheel" id="wheel"></div>
+      <div class="ball" id="ball"></div>
+      <div class="wheel-gloss" id="wheelGloss"></div>
+      <div class="pointer"></div>
+    </div>
+  </div>
+
+  <div class="table-scroll">
+  <div class="table-wrap">
+    <div class="grid" id="grid">
+      <div id="overlay"></div>
+    </div>
+    <div class="bottom-row">
+      <div></div>
+      <div class="dozens" id="dozens"></div>
+      <div></div>
+    </div>
+    <div class="bottom-row">
+      <div></div>
+      <div class="evens" id="evens"></div>
+      <div></div>
+    </div>
+  </div>
+  </div>
+
+  <div class="odds-panel" id="oddsPanel" role="region" aria-label="Odds breakdown"></div>
+</div>
+
+<div class="controls">
+  <div class="chips" id="chips"></div>
+  <div class="bet-hint" data-i18n="hintRemove"></div>
+  <div class="row">
+    <button class="action" id="spinBtn">SPIN 🎯</button>
+    <button class="action secondary" id="undoBtn" data-i18n="undoBet">↩ 復原籌碼</button>
+    <button class="action secondary" id="clearBtn" data-i18n="clearBets">清空下注</button>
+    <button class="action secondary" id="repeatBtn" data-i18n="repeatBet">🔁 重複上次下注</button>
+    <button class="action secondary" id="resetBtn" data-i18n="resetBalance">重設餘額</button>
+  </div>
+  <div id="history"></div>
+</div>
+
+<script>
+// ---------------- i18n ----------------
+// Values are either plain strings or functions of the interpolated values.
+// Table markings (RED / EVEN / 1st 12 / 2 to 1 …) stay English in both
+// languages — that is how they are printed on a real casino layout.
+const I18N = {
+  zh: {
+    balance:'餘額', betLabel:'本輪下注', lastLabel:'上局結果',
+    amountPh:'輸入金額', setBalance:'設定餘額', addBalance:'+ 加值',
+    clearBets:'清空下注', repeatBet:'🔁 重複上次下注', resetBalance:'重設餘額',
+    undoBet:'↩ 復原籌碼',
+    hintRemove:'💡 每個下注點最低 $5 才能開轉;右鍵點擊下注點可移除一個籌碼(鍵盤:選取後按 Backspace)',
+    langBtn:'English',
+    backToLobby:'← 選擇遊戲',
+
+    msgWelcome:'選擇籌碼並在桌上下注,然後按 SPIN！',
+    msgNoFunds:'餘額不足！',
+    msgCleared:'已清空下注。',
+    msgRemoved:v=>`已移除 $${v} 籌碼。`,
+    msgNothingToRemove:'這個位置沒有籌碼可以移除。',
+    msgNothingToUndo:'沒有可以復原的籌碼。',
+    msgNoLastBet:'還沒有上一次的下注可以重複。',
+    msgRepeatNoFunds:t=>`餘額不足,無法重複上次下注(需要 $${t})。`,
+    msgRepeated:t=>`已重複上次下注,共 $${t}。`,
+    msgSpinningLock:'轉動中,請稍後再調整餘額。',
+    msgBadAmount:'請輸入有效的金額！(必須是 0 或正整數)',
+    msgBalanceSet:b=>`餘額已設定為 $${b}。`,
+    msgBadAdd:'請輸入有效的加值金額！(必須大於 0)',
+    msgAdded:(v,b)=>`已加值 $${v},目前餘額 $${b}。`,
+    msgBalanceReset:'餘額已重設為 $1000。',
+    msgBetFirst:'請先下注！',
+    msgBelowMin:(min,n)=>`每個下注點最低要 $${min},還有 ${n} 個位置沒補到,請加碼或收回。`,
+    minBetHint:min=>`未達最低下注 $${min}`,
+    msgSpinning:'轉動中...',
+    msgWin:(n,w)=>`🎉 開出 ${n}！贏得 $${w}！`,
+    msgLose:n=>`開出 ${n}。這局沒中,再接再厲！`,
+    msgBroke:'💸 餘額歸零！請按「重設餘額」重新開始。',
+    green:'綠', red:'紅', black:'黑',
+
+    oddsTitle:'📊 機率分析',
+    oddsEmpty:'尚未下注。<br>在桌上放入籌碼後,這裡會即時算出每種結果的機率與盈虧。',
+    oddsSub:(t,n)=>`本局下注 $${t} ・ 共 ${n} 格`,
+    oddsWin:v=>`賺 +$${v}`,
+    oddsEven:'不賺不賠',
+    oddsLose:v=>`賠 −$${v}`,
+    oddsPockets:(c,n)=>`${c}/${n} 格`,
+    oddsMore:n=>` … 等 ${n} 個`,
+    oddsEv:(sign,v,pct)=>`期望值 <b>${sign}$${v}</b> (${sign}${pct}%)`,
+    oddsEvNote:(gain,v)=>`平均每局${gain?'賺':'虧'} $${v}`,
+
+    riskTitle:'⚖️ 值得下這注嗎?',
+    riskVerdict:label=>`波動評級:${label}`,
+    riskLevel_low:'穩健',
+    riskLevel_medium:'中等',
+    riskLevel_high:'高風險',
+    riskStdev:(sd,ratio)=>`每局損益標準差 $${sd}(約下注額的 ${ratio} 倍)`,
+    riskWorst:(v,pct)=>`最差情況:輸 $${v},發生機率 ${pct}%`,
+    riskStake:pct=>`這局動用了目前餘額的 ${pct}%`,
+    riskFixedEdge:'提醒:美式輪盤所有標準注別長期期望值都固定是 −5.26%,沒有哪種注法在數學上「比較划算」。這裡評的是波動大小與風險曝險,不是勝率。'
+  },
+  en: {
+    balance:'Balance', betLabel:'Bet', lastLabel:'Last',
+    amountPh:'Amount', setBalance:'Set Balance', addBalance:'+ Add',
+    clearBets:'Clear Bets', repeatBet:'🔁 Repeat Bet', resetBalance:'Reset Balance',
+    undoBet:'↩ Undo Chip',
+    hintRemove:'💡 $5 minimum per spot to spin; right-click a betting spot to take one chip back (keyboard: focus it and press Backspace)',
+    langBtn:'中文',
+    backToLobby:'← Choose a Game',
+
+    msgWelcome:'Pick a chip, place your bets, then hit SPIN!',
+    msgNoFunds:'Not enough balance!',
+    msgCleared:'Bets cleared.',
+    msgRemoved:v=>`Took back a $${v} chip.`,
+    msgNothingToRemove:'No chip on that spot to remove.',
+    msgNothingToUndo:'Nothing to undo.',
+    msgNoLastBet:'No previous bet to repeat yet.',
+    msgRepeatNoFunds:t=>`Not enough balance to repeat that bet (needs $${t}).`,
+    msgRepeated:t=>`Last bet repeated — $${t} total.`,
+    msgSpinningLock:'Wheel is spinning — adjust the balance once it stops.',
+    msgBadAmount:'Enter a valid amount (0 or a positive whole number).',
+    msgBalanceSet:b=>`Balance set to $${b}.`,
+    msgBadAdd:'Enter a valid amount to add (must be greater than 0).',
+    msgAdded:(v,b)=>`Added $${v} — balance is now $${b}.`,
+    msgBalanceReset:'Balance reset to $1000.',
+    msgBetFirst:'Place a bet first!',
+    msgBelowMin:(min,n)=>`Table minimum is $${min} per spot — ${n} spot(s) still short. Add more or take them back.`,
+    minBetHint:min=>`Below the $${min} table minimum`,
+    msgSpinning:'Spinning...',
+    msgWin:(n,w)=>`🎉 ${n} wins! You collect $${w}!`,
+    msgLose:n=>`${n}. No luck this time — try again!`,
+    msgBroke:'💸 You are out of money! Hit "Reset Balance" to start over.',
+    green:'green', red:'red', black:'black',
+
+    oddsTitle:'📊 Odds Breakdown',
+    oddsEmpty:'No bets yet.<br>Place chips on the table and every outcome\'s odds and payout appear here.',
+    oddsSub:(t,n)=>`$${t} at stake ・ ${n} pockets`,
+    oddsWin:v=>`Win +$${v}`,
+    oddsEven:'Break even',
+    oddsLose:v=>`Lose −$${v}`,
+    oddsPockets:(c,n)=>`${c}/${n} pockets`,
+    oddsMore:n=>` … ${n} total`,
+    oddsEv:(sign,v,pct)=>`Expected value <b>${sign}$${v}</b> (${sign}${pct}%)`,
+    oddsEvNote:(gain,v)=>`${gain?'Gaining':'Losing'} $${v} per spin on average`,
+
+    riskTitle:'⚖️ Is This Bet Worth It?',
+    riskVerdict:label=>`Volatility: ${label}`,
+    riskLevel_low:'Low',
+    riskLevel_medium:'Medium',
+    riskLevel_high:'High',
+    riskStdev:(sd,ratio)=>`Payout swings by $${sd} per spin (about ${ratio}x your stake)`,
+    riskWorst:(v,pct)=>`Worst case: lose $${v}, happens ${pct}% of the time`,
+    riskStake:pct=>`This spin risks ${pct}% of your current balance`,
+    riskFixedEdge:'Note: every standard roulette bet carries the same fixed −5.26% edge long-run — no bet type is mathematically "better" than another. This section rates volatility and exposure, not win rate.'
+  }
+};
+
+let lang = 'zh';
+function t(key, ...args){
+  const v = I18N[lang][key];
+  return typeof v === 'function' ? v(...args) : v;
+}
+
+// Remembered so the banner and result can be re-rendered on a language switch.
+let currentMsg = ['msgWelcome'];
+let lastResultData = null;
+
+function applyLang(){
+  document.documentElement.lang = (lang === 'zh') ? 'zh-Hant' : 'en';
+  document.querySelectorAll('[data-i18n]').forEach(elm=>{
+    elm.textContent = t(elm.dataset.i18n);
+  });
+  document.querySelectorAll('[data-i18n-ph]').forEach(elm=>{
+    elm.placeholder = t(elm.dataset.i18nPh);
+  });
+  document.getElementById('langBtn').textContent = t('langBtn');
+  document.getElementById('message').textContent = t(...currentMsg);
+  renderLastResult();
+  updateOdds();
+}
+
+function renderLastResult(){
+  const box = document.getElementById('lastResult');
+  if(!lastResultData){ box.textContent = '-'; return; }
+  const {num, col} = lastResultData;
+  box.textContent = `${num} (${t(col)})`;
+}
+
+// ---------------- Data ----------------
+const RED_NUMBERS = new Set([1,3,5,7,9,12,14,16,18,19,21,23,25,27,30,32,34,36]);
+function colorOf(n){
+  if(n==='0' || n==='00') return 'green';
+  return RED_NUMBERS.has(n) ? 'red' : 'black';
+}
+
+// American wheel physical order (0 and 00 opposite each other)
+const WHEEL_ORDER = ['0',28,9,26,30,11,7,20,32,17,5,22,34,15,3,24,36,13,1,'00',
+                      27,10,25,29,12,8,19,31,18,6,21,33,16,4,23,35,14,2];
+
+let balance = 1000;
+let selectedChip = 5;
+let bets = {}; // key -> amount
+let spinning = false;
+let history = [];
+let lastBets = null; // snapshot of the bets used on the most recently submitted spin
+const keyElements = {}; // betKey -> DOM element, so "repeat last bet" can re-render chip dots
+
+// ---------------- Build betting grid ----------------
+const grid = document.getElementById('grid');
+const overlay = document.getElementById('overlay');
+
+// hotspotNumbers[betKey] = array of winning-number strings covered by that bet
+const hotspotNumbers = {};
+
+// 0 and 00 as two separate straight-bet cells, side by side, spanning all 3 rows
+const zeroEl = document.createElement('div');
+zeroEl.className = 'cell zero-cell green';
+zeroEl.textContent = '0';
+zeroEl.style.gridColumn = '1';
+zeroEl.style.gridRow = '1 / span 3';
+zeroEl.dataset.betKey = 'nZ';
+makeBetTarget(zeroEl, 'nZ', '0', 'Straight up 0');
+grid.appendChild(zeroEl);
+
+const doubleZeroEl = document.createElement('div');
+doubleZeroEl.className = 'cell zero-cell green';
+doubleZeroEl.textContent = '00';
+doubleZeroEl.style.gridColumn = '2';
+doubleZeroEl.style.gridRow = '1 / span 3';
+doubleZeroEl.dataset.betKey = 'nDZ';
+makeBetTarget(doubleZeroEl, 'nDZ', '00', 'Straight up 00');
+grid.appendChild(doubleZeroEl);
+
+// numbers 1-36 arranged in columns of 3 (top row:3,6,9.. mid row:2,5,8.. bottom row:1,4,7..)
+// cellRefs[row][col] -> element, row 0=top,1=mid,2=bottom ; numAt(row,col) -> number
+function numAt(row, col){ return col*3 + (3-row); }
+const cellRefs = [[],[],[]];
+for(let col=0; col<12; col++){
+  for(let row=0; row<3; row++){
+    const num = numAt(row,col);
+    const c = document.createElement('div');
+    c.className = 'cell ' + colorOf(num);
+    c.textContent = num;
+    c.style.gridColumn = String(col+3);
+    c.style.gridRow = String(row+1);
+    c.dataset.betKey = 'n'+num;
+    makeBetTarget(c, 'n'+num, num, 'Straight up '+num);
+    grid.appendChild(c);
+    cellRefs[row][col] = c;
+  }
+}
+
+// 2 to 1 column bets (one per row) - last grid column
+['3rd','2nd','1st'].forEach((label, idx)=>{
+  const c = document.createElement('div');
+  c.className = 'cell outside';
+  c.textContent = '2 to 1';
+  c.style.gridColumn = '15';
+  c.style.gridRow = String(idx+1);
+  c.dataset.betKey = 'col'+idx;
+  makeBetTarget(c, 'col'+idx, '2to1', label+' column, pays 2 to 1');
+  grid.appendChild(c);
+});
+
+// ---------------- Split / Street / Corner / Six-line hotspots ----------------
+// Built from actual rendered cell positions so they always line up with the grid, regardless of sizing.
+// Bet targets are plain <div>s, so they need explicit button semantics and a
+// keyboard path to be usable without a mouse.
+function makeBetTarget(elm, key, label, ariaLabel){
+  elm.setAttribute('role','button');
+  elm.setAttribute('tabindex','0');
+  elm.setAttribute('aria-label', ariaLabel);
+  elm.addEventListener('click', ()=>placeBet(key, elm, label));
+  // Right-click takes a chip back off this spot — the usual casino-app gesture.
+  elm.addEventListener('contextmenu', e=>{
+    e.preventDefault();
+    removeBet(key, elm);
+  });
+  elm.addEventListener('keydown', e=>{
+    if(e.key === 'Enter' || e.key === ' ' || e.key === 'Spacebar'){
+      e.preventDefault();
+      placeBet(key, elm, label);
+    }else if(e.key === 'Backspace' || e.key === 'Delete'){
+      e.preventDefault();
+      removeBet(key, elm);
+    }
+  });
+}
+
+function addHotspot(x, y, key, label, numbers){
+  const h = document.createElement('div');
+  h.className = 'hotspot';
+  h.style.left = x+'px';
+  h.style.top = y+'px';
+  h.title = label;
+  h.dataset.betKey = key;
+  makeBetTarget(h, key, label, label);
+  overlay.appendChild(h);
+  hotspotNumbers[key] = numbers;
+}
+
+// getBoundingClientRect() reports post-transform screen pixels, but hotspots are
+// positioned in the grid's own untransformed pixels. Dividing by the current
+// scale keeps them aligned even when an ancestor is scaled (mobile layout).
+let gridScale = 1;
+function rectOf(el, gridRect){
+  const r = el.getBoundingClientRect();
+  return {
+    left: (r.left-gridRect.left)/gridScale,
+    top: (r.top-gridRect.top)/gridScale,
+    width: r.width/gridScale,
+    height: r.height/gridScale
+  };
+}
+
+function buildOverlay(){
+  overlay.innerHTML = '';
+  const gridRect = grid.getBoundingClientRect();
+  gridScale = grid.offsetWidth ? (gridRect.width / grid.offsetWidth) : 1;
+  if(!gridScale || !isFinite(gridScale)) gridScale = 1;
+
+  // vertical splits: within a column, between adjacent rows (e.g. 1-2, 2-3)
+  for(let col=0; col<12; col++){
+    for(let row=0; row<2; row++){
+      const ra = rectOf(cellRefs[row][col], gridRect);
+      const x = ra.left + ra.width/2;
+      const y = ra.top + ra.height;
+      addHotspot(x, y, 'split_v_'+row+'_'+col, 'Split '+numAt(row,col)+'-'+numAt(row+1,col),
+        [String(numAt(row,col)), String(numAt(row+1,col))]);
+    }
+  }
+  // horizontal splits: within a row, between adjacent columns (e.g. 1-4, 4-7)
+  for(let row=0; row<3; row++){
+    for(let col=0; col<11; col++){
+      const ra = rectOf(cellRefs[row][col], gridRect);
+      const x = ra.left + ra.width;
+      const y = ra.top + ra.height/2;
+      addHotspot(x, y, 'split_h_'+row+'_'+col, 'Split '+numAt(row,col)+'-'+numAt(row,col+1),
+        [String(numAt(row,col)), String(numAt(row,col+1))]);
+    }
+  }
+  // corners: 4 numbers meeting at an interior grid point
+  for(let row=0; row<2; row++){
+    for(let col=0; col<11; col++){
+      const ra = rectOf(cellRefs[row][col], gridRect);
+      const x = ra.left + ra.width;
+      const y = ra.top + ra.height;
+      const nums = [numAt(row,col), numAt(row,col+1), numAt(row+1,col), numAt(row+1,col+1)];
+      addHotspot(x, y, 'corner_'+row+'_'+col, 'Corner '+nums.join('-'), nums.map(String));
+    }
+  }
+  // streets: 3 numbers in one column, marker on the bottom outer edge
+  for(let col=0; col<12; col++){
+    const ra = rectOf(cellRefs[2][col], gridRect);
+    const x = ra.left + ra.width/2;
+    const y = ra.top + ra.height;
+    const nums = [numAt(0,col), numAt(1,col), numAt(2,col)];
+    addHotspot(x, y, 'street_'+col, 'Street '+nums.join('-'), nums.map(String));
+  }
+  // six-lines: 6 numbers spanning two adjacent columns, marker on the bottom outer edge
+  for(let col=0; col<11; col++){
+    const ra = rectOf(cellRefs[2][col], gridRect);
+    const x = ra.left + ra.width;
+    const y = ra.top + ra.height;
+    const nums = [numAt(0,col),numAt(1,col),numAt(2,col),numAt(0,col+1),numAt(1,col+1),numAt(2,col+1)];
+    addHotspot(x, y, 'sixline_'+col, 'Six Line '+nums.join('-'), nums.map(String));
+  }
+  // split between 0 and 00
+  {
+    const rz = rectOf(zeroEl, gridRect);
+    const x = rz.left + rz.width;
+    const y = rz.top + rz.height/2;
+    addHotspot(x, y, 'split_0_00', 'Split 0-00', ['0','00']);
+  }
+  // split 0-1 / 0-2 (0 touches top half of column 0)
+  {
+    const rz = rectOf(zeroEl, gridRect);
+    const r0 = rectOf(cellRefs[0][0], gridRect); // number 3, top row - not adjacent to 0; use row1(mid=2) and row2(bottom=1)
+    const rMid = rectOf(cellRefs[1][0], gridRect); // number 2
+    const rBot = rectOf(cellRefs[2][0], gridRect); // number 1
+    addHotspot(rz.left+rz.width, rMid.top, 'split_0_2', 'Split 0-2', ['0','2']);
+    addHotspot(rz.left+rz.width, rBot.top, 'split_0_1', 'Split 0-1', ['0','1']);
+  }
+  // split 00-2 / 00-3
+  {
+    const rzz = rectOf(doubleZeroEl, gridRect);
+    const rTop = rectOf(cellRefs[0][0], gridRect); // number 3
+    const rMid = rectOf(cellRefs[1][0], gridRect); // number 2
+    addHotspot(rzz.left+rzz.width, rMid.top, 'split_00_2', 'Split 00-2', ['00','2']);
+    addHotspot(rzz.left+rzz.width, rTop.top, 'split_00_3', 'Split 00-3', ['00','3']);
+  }
+}
+buildOverlay();
+window.addEventListener('resize', buildOverlay);
+
+// dozens
+const dozens = document.getElementById('dozens');
+[['1st 12','d0'],['2nd 12','d1'],['3rd 12','d2']].forEach(([label,key])=>{
+  const c = document.createElement('div');
+  c.className = 'cell outside';
+  c.textContent = label;
+  c.dataset.betKey = key;
+  makeBetTarget(c, key, label, label);
+  dozens.appendChild(c);
+});
+
+// evens row: 1-18, EVEN, RED, BLACK, ODD, 19-36
+const evens = document.getElementById('evens');
+[
+  ['1 to 18','low'],['EVEN','even'],['RED','red'],['BLACK','black'],['ODD','odd'],['19 to 36','high']
+].forEach(([label,key])=>{
+  const c = document.createElement('div');
+  c.className = 'cell outside';
+  if(key==='red') c.classList.add('red');
+  else if(key==='black') c.classList.add('black');
+  c.textContent = label;
+  c.dataset.betKey = key;
+  makeBetTarget(c, key, label, label);
+  evens.appendChild(c);
+});
+
+// ---------------- Chips ----------------
+const chipValues = [1,5,10,25,50,100];
+const chipColors = {1:'#888',5:'#c0392b',10:'#2980b9',25:'#27ae60',50:'#222',100:'#7d3c98'};
+const chipsBox = document.getElementById('chips');
+chipValues.forEach(v=>{
+  const c = document.createElement('div');
+  c.className = 'chip' + (v===selectedChip?' selected':'');
+  c.style.background = chipColors[v];
+  c.textContent = '$'+v;
+  c.addEventListener('click', ()=>{
+    document.querySelectorAll('.chip').forEach(x=>x.classList.remove('selected'));
+    c.classList.add('selected');
+    selectedChip = v;
+  });
+  chipsBox.appendChild(c);
+});
+
+// ---------------- Betting logic ----------------
+// Table minimum: real casinos won't let a spot ride for less than this, so a
+// spot can hold a smaller amount while you're still building it up, but the
+// wheel won't spin until every spot on the felt clears the minimum.
+const MIN_BET_PER_SPOT = 5;
+
+// Every chip laid down is recorded so "undo" can peel them off newest-first —
+// the touch-friendly counterpart to right-clicking an individual spot.
+let placements = [];
+
+function belowMinimumSpots(){
+  return Object.entries(bets).filter(([,amt]) => amt < MIN_BET_PER_SPOT);
+}
+
+function placeBet(key, el, label){
+  keyElements[key] = el;
+  if(spinning) return;
+  const currentTotal = totalBetAmount();
+  if(currentTotal + selectedChip > balance){
+    setMessage('msgNoFunds');
+    return;
+  }
+  bets[key] = (bets[key]||0) + selectedChip;
+  placements.push({key, amount: selectedChip});
+  updateChipDot(el, bets[key]);
+  updateTotalBetDisplay();
+  sfx.chip();
+}
+
+// Takes `amount` off one spot (default: the currently selected chip), clamped so
+// it can never leave a negative stake behind.
+function removeBet(key, el, amount){
+  if(spinning) return;
+  const current = bets[key] || 0;
+  if(!current){ setMessage('msgNothingToRemove'); return; }
+
+  const taken = Math.min(amount === undefined ? selectedChip : amount, current);
+  const left = current - taken;
+  if(left > 0){
+    bets[key] = left;
+    updateChipDot(el, left);
+  }else{
+    delete bets[key];
+    const dot = el.querySelector('.chipdot');
+    if(dot) dot.remove();
+  }
+
+  // drop the newest matching placement so undo stays consistent with the table
+  for(let i = placements.length - 1; i >= 0; i--){
+    if(placements[i].key === key){ placements.splice(i, 1); break; }
+  }
+
+  updateTotalBetDisplay();
+  sfx.click();
+  setMessage('msgRemoved', taken);
+}
+
+function undoLastChip(){
+  if(spinning) return;
+  const last = placements[placements.length - 1];
+  if(!last){ setMessage('msgNothingToUndo'); return; }
+  const el = keyElements[last.key];
+  if(!el){ placements.pop(); return; }
+  removeBet(last.key, el, last.amount);
+}
+
+function updateChipDot(el, amount){
+  let dot = el.querySelector('.chipdot');
+  if(!dot){
+    dot = document.createElement('div');
+    dot.className = 'chipdot';
+    el.appendChild(dot);
+  }
+  dot.textContent = amount;
+  dot.classList.toggle('below-min', amount < MIN_BET_PER_SPOT);
+  dot.title = (amount < MIN_BET_PER_SPOT) ? t('minBetHint', MIN_BET_PER_SPOT) : '';
+}
+
+function totalBetAmount(){
+  return Object.values(bets).reduce((a,b)=>a+b,0);
+}
+
+// Chips on the felt have already left the player's stack, so the balance
+// readout shows what is still AVAILABLE to bet. Without this the display
+// contradicts itself: it would read $1000 while refusing a bet for lack of funds.
+function renderBalance(){
+  document.getElementById('balance').textContent = balance - totalBetAmount();
+}
+
+function updateTotalBetDisplay(){
+  document.getElementById('totalBet').textContent = totalBetAmount();
+  renderBalance();
+  updateOdds();
+}
+
+// ---------------- Live odds panel ----------------
+// Every pocket is settled with the real payout() used by resolveSpin(), so the
+// panel can never drift from what the game actually pays out.
+function sortPockets(nums){
+  const zeros = nums.filter(n => n==='0' || n==='00');
+  const rest = nums.filter(n => typeof n === 'number').sort((a,b)=>a-b);
+  return [...zeros, ...rest];
+}
+
+function listPockets(nums){
+  const s = sortPockets(nums);
+  if(s.length <= 9) return s.join(', ');
+  return s.slice(0,9).join(', ') + t('oddsMore', s.length);
+}
+
+// Settles every one of the 38 pockets through the real payout() and groups
+// them by net profit/loss. Both the outcome list and the risk analysis read
+// from this single computation, so they can never disagree with each other.
+function getOutcomeDistribution(){
+  const total = totalBetAmount();
+  const buckets = new Map();
+  for(const num of WHEEL_ORDER){
+    let returned = 0;
+    for(const key in bets) returned += payout(key, bets[key], num);
+    const net = returned - total;
+    if(!buckets.has(net)) buckets.set(net, []);
+    buckets.get(net).push(num);
+  }
+  const rows = [...buckets.entries()].sort((a,b)=>b[0]-a[0]);
+  let ev = 0;
+  rows.forEach(([net, nums]) => ev += net*nums.length);
+  ev /= N;
+
+  let variance = 0;
+  rows.forEach(([net, nums]) => variance += (nums.length/N) * (net-ev)*(net-ev));
+  const stdev = Math.sqrt(variance);
+
+  return {total, rows, ev, stdev};
+}
+
+function updateOdds(){
+  const panel = document.getElementById('oddsPanel');
+  if(!panel) return;
+  const total = totalBetAmount();
+
+  if(total === 0){
+    panel.innerHTML = `<div class="odds-title">${t('oddsTitle')}</div>`
+      + `<div class="odds-empty">${t('oddsEmpty')}</div>`;
+    return;
+  }
+
+  const {rows, ev, stdev} = getOutcomeDistribution();
+
+  let html = `<div class="odds-title">${t('oddsTitle')}</div>`
+    + `<div class="odds-sub">${t('oddsSub', total, N)}</div>`;
+
+  for(const [net, nums] of rows){
+    const pct = nums.length / N * 100;
+    const cls = net > 0 ? 'win' : (net === 0 ? 'even' : 'lose');
+    const color = net > 0 ? '#5ed67c' : (net === 0 ? '#e8c165' : '#f2706f');
+    const label = net > 0 ? t('oddsWin', net)
+                : net === 0 ? t('oddsEven')
+                : t('oddsLose', Math.abs(net));
+    html += `<div class="odds-row ${cls}">`
+      + `<div class="odds-head"><span class="odds-label">${label}</span>`
+      + `<span class="odds-pct">${pct.toFixed(1)}%</span></div>`
+      + `<div class="odds-meta">${t('oddsPockets', nums.length, N)} ・ ${listPockets(nums)}</div>`
+      + `<div class="odds-bar"><span style="width:${pct}%;background:${color}"></span></div>`
+      + `</div>`;
+  }
+
+  const evPct = ev / total * 100;
+  const sign = ev >= 0 ? '+' : '−';
+  html += `<div class="odds-ev">`
+    + t('oddsEv', sign, Math.abs(ev).toFixed(2), Math.abs(evPct).toFixed(2))
+    + `<br>` + t('oddsEvNote', ev >= 0, Math.abs(ev).toFixed(2))
+    + `</div>`;
+
+  html += renderRiskAnalysis(stdev, total, rows);
+
+  panel.innerHTML = html;
+}
+
+// Every standard bet has the identical -5.26% edge, so EV alone can never say
+// one bet is "worth it" over another — that part is constant. What actually
+// differs bet-to-bet is volatility (how hard the outcomes swing) and how much
+// of the current bankroll a single spin puts on the line. This section rates
+// those two things instead of pretending some bets beat the house edge.
+function classifyVolatility(stdev, total){
+  const ratio = total > 0 ? stdev/total : 0;
+  if(ratio < 1.2) return {level:'low',    ratio};
+  if(ratio < 3.0) return {level:'medium', ratio};
+  return {level:'high', ratio};
+}
+
+function renderRiskAnalysis(stdev, total, rows){
+  const {level, ratio} = classifyVolatility(stdev, total);
+  const worst = rows[rows.length-1];              // most negative net, sorted desc
+  const worstPct = worst[1].length / N * 100;
+  const stakePct = balance > 0 ? Math.min(100, total/balance*100) : 100;
+
+  const levelColor = {low:'#5ed67c', medium:'#e8c165', high:'#f2706f'}[level];
+  const levelLabel = t('riskLevel_'+level);
+
+  return `<div class="risk-box">`
+    + `<div class="risk-title">${t('riskTitle')}</div>`
+    + `<div class="risk-verdict" style="color:${levelColor}">${t('riskVerdict', levelLabel)}</div>`
+    + `<div class="risk-line">${t('riskStdev', stdev.toFixed(2), ratio.toFixed(2))}</div>`
+    + `<div class="risk-line">${t('riskWorst', Math.abs(worst[0]), worstPct.toFixed(1))}</div>`
+    + `<div class="risk-line">${t('riskStake', stakePct.toFixed(1))}</div>`
+    + `<div class="risk-note">${t('riskFixedEdge')}</div>`
+    + `</div>`;
+}
+
+function clearBets(){
+  bets = {};
+  placements = [];
+  document.querySelectorAll('.chipdot').forEach(d=>d.remove());
+  updateTotalBetDisplay();
+}
+
+document.getElementById('clearBtn').addEventListener('click', ()=>{
+  if(spinning) return;
+  clearBets();
+  setMessage('msgCleared');
+});
+
+document.getElementById('repeatBtn').addEventListener('click', ()=>{
+  if(spinning) return;
+  if(!lastBets || Object.keys(lastBets).length===0){
+    setMessage('msgNoLastBet');
+    return;
+  }
+  const total = Object.values(lastBets).reduce((a,b)=>a+b,0);
+  if(total > balance){
+    setMessage('msgRepeatNoFunds', total);
+    return;
+  }
+  clearBets();
+  for(const key in lastBets){
+    const amt = lastBets[key];
+    const el = keyElements[key];
+    bets[key] = amt;
+    placements.push({key, amount: amt});
+    if(el) updateChipDot(el, amt);
+  }
+  updateTotalBetDisplay();
+  setMessage('msgRepeated', total);
+  saveState();
+});
+
+document.getElementById('resetBtn').addEventListener('click', ()=>{
+  if(spinning) return;
+  balance = 1000;
+  clearBets();
+  renderBalance();
+  setMessage('msgBalanceReset');
+  saveState();
+});
+
+function flashBalance(){
+  const el = document.getElementById('balance');
+  el.style.transition = 'none';
+  el.style.color = '#fff';
+  requestAnimationFrame(()=>{
+    el.style.transition = 'color .6s';
+    el.style.color = 'var(--gold)';
+  });
+}
+
+function doSetBalance(){
+  // Balance can't be changed mid-spin: resolveSpin still has to settle the bets already
+  // wagered on this spin, and editing balance/bets now would corrupt that settlement.
+  if(spinning){ setMessage('msgSpinningLock'); return; }
+  const input = document.getElementById('balanceInput');
+  const raw = input.value.trim();
+  const val = Math.floor(Number(raw));
+  if(raw === '' || !Number.isFinite(val) || val < 0){
+    setMessage('msgBadAmount');
+    return;
+  }
+  balance = val;
+  clearBets();
+  renderBalance();
+  input.value = '';
+  flashBalance();
+  setMessage('msgBalanceSet', balance);
+  saveState();
+}
+
+function doAddBalance(){
+  if(spinning){ setMessage('msgSpinningLock'); return; }
+  const input = document.getElementById('balanceInput');
+  const raw = input.value.trim();
+  const val = Math.floor(Number(raw));
+  if(raw === '' || !Number.isFinite(val) || val <= 0){
+    setMessage('msgBadAdd');
+    return;
+  }
+  balance += val;
+  renderBalance();
+  input.value = '';
+  flashBalance();
+  setMessage('msgAdded', val, balance);
+  saveState();
+}
+
+document.getElementById('setBalanceBtn').addEventListener('click', doSetBalance);
+document.getElementById('addBalanceBtn').addEventListener('click', doAddBalance);
+document.getElementById('balanceInput').addEventListener('keydown', (e)=>{
+  if(e.key === 'Enter') doSetBalance();
+});
+
+function setMessage(key, ...args){
+  currentMsg = [key, ...args];
+  document.getElementById('message').textContent = t(key, ...args);
+}
+
+// ---------------- Build wheel visual ----------------
+const wheelEl = document.getElementById('wheel');
+const frameEl = document.getElementById('wheelFrame');
+const glossEl = document.getElementById('wheelGloss');
+const N = WHEEL_ORDER.length;
+
+// All three wheel layers share one 340x340 coordinate space centred on (170,170),
+// so the rotor lines up with the static bowl drawn beneath it.
+const SVG_NS = 'http://www.w3.org/2000/svg';
+const SIZE = 340, CX = 170, CY = 170;
+const R_RIM_OUT = 168, R_RIM_IN = 155;
+const R_TRACK_OUT = 152, R_TRACK_IN = 134;   // ball rides the middle of this band
+const R_POCKET_OUT = 132, R_POCKET_IN = 88;
+const R_CONE = 88, R_TURRET = 30;
+
+function el(tag, attrs){
+  const e = document.createElementNS(SVG_NS, tag);
+  for(const k in attrs) e.setAttribute(k, attrs[k]);
+  return e;
+}
+function newSvg(){
+  const s = el('svg', {viewBox:`0 0 ${SIZE} ${SIZE}`, width:'100%', height:'100%'});
+  s.style.display = 'block';
+  return s;
+}
+function polar(r, deg){
+  const a = deg*Math.PI/180;
+  return [CX + r*Math.cos(a), CY + r*Math.sin(a)];
+}
+// annular sector, used for the number pockets
+function sectorPath(ro, ri, a0, a1){
+  const [x1o,y1o] = polar(ro,a0), [x2o,y2o] = polar(ro,a1);
+  const [x2i,y2i] = polar(ri,a1), [x1i,y1i] = polar(ri,a0);
+  const large = (a1-a0) > 180 ? 1 : 0;
+  return `M${x1o},${y1o} A${ro},${ro} 0 ${large} 1 ${x2o},${y2o}`
+       + ` L${x2i},${y2i} A${ri},${ri} 0 ${large} 0 ${x1i},${y1i} Z`;
+}
+function grad(defs, id, type, attrs, stops){
+  const g = el(type, Object.assign({id}, attrs));
+  stops.forEach(([off,color])=>g.appendChild(el('stop',{offset:off,'stop-color':color})));
+  defs.appendChild(g);
+}
+
+// ---- static bowl: outer rim, ball track, deflector diamonds ----
+function buildFrame(){
+  frameEl.innerHTML = '';
+  const svg = newSvg();
+  const defs = el('defs', {});
+
+  grad(defs,'rimGrad','radialGradient',{cx:'42%',cy:'26%',r:'78%'},[
+    ['0','#f7e6b0'],['0.35','#d3ae66'],['0.66','#9b7a38'],['0.86','#6b5222'],['1','#3f3013']
+  ]);
+  grad(defs,'goldRing','linearGradient',{x1:'0',y1:'0',x2:'0',y2:'1'},[
+    ['0','#ffeeb8'],['0.45','#c9a75d'],['1','#7a5c22']
+  ]);
+  grad(defs,'trackGrad','radialGradient',{cx:'42%',cy:'28%',r:'76%'},[
+    ['0','#7d6a44'],['0.5','#52432a'],['1','#2b2214']
+  ]);
+  grad(defs,'diamondGrad','linearGradient',{x1:'0',y1:'0',x2:'0',y2:'1'},[
+    ['0','#ffffff'],['0.45','#c8ccd2'],['1','#7d828a']
+  ]);
+  svg.appendChild(defs);
+
+  // outer rim body + its edges
+  svg.appendChild(el('circle',{cx:CX,cy:CY,r:R_RIM_OUT,fill:'url(#rimGrad)'}));
+  svg.appendChild(el('circle',{cx:CX,cy:CY,r:R_RIM_OUT-1,fill:'none',
+    stroke:'rgba(0,0,0,.55)','stroke-width':'2'}));
+  svg.appendChild(el('circle',{cx:CX,cy:CY,r:(R_RIM_OUT+R_RIM_IN)/2,fill:'none',
+    stroke:'url(#goldRing)','stroke-width':'2.5',opacity:'.85'}));
+
+  // ball track, sunk below the rim
+  svg.appendChild(el('circle',{cx:CX,cy:CY,r:R_TRACK_OUT,fill:'url(#trackGrad)'}));
+  svg.appendChild(el('circle',{cx:CX,cy:CY,r:R_TRACK_OUT,fill:'none',
+    stroke:'rgba(0,0,0,.6)','stroke-width':'5'}));
+
+  // deflector diamonds sitting on the upper slope
+  for(let i=0;i<8;i++){
+    const ang = -90 + i*45;
+    const [dx,dy] = polar(147, ang);
+    const d = el('path',{
+      d:'M0,-8 L5,0 L0,8 L-5,0 Z',
+      fill:'url(#diamondGrad)',
+      stroke:'rgba(0,0,0,.45)','stroke-width':'.8',
+      transform:`translate(${dx},${dy}) rotate(${ang+90})`
+    });
+    svg.appendChild(d);
+  }
+
+  // shadow where the track drops into the rotor
+  svg.appendChild(el('circle',{cx:CX,cy:CY,r:R_TRACK_IN,fill:'none',
+    stroke:'rgba(0,0,0,.55)','stroke-width':'9'}));
+
+  frameEl.appendChild(svg);
+}
+
+// ---- rotor: pockets, frets, cone, turret (this is what spins) ----
+function buildWheel(){
+  wheelEl.innerHTML = '';
+  const svg = newSvg();
+  const defs = el('defs', {});
+
+  // darkens both edges of the pocket ring so it reads as recessed
+  const inner = (R_POCKET_IN/R_POCKET_OUT).toFixed(3);
+  grad(defs,'pocketDepth','radialGradient',{cx:'50%',cy:'50%',r:'50%'},[
+    ['0','rgba(0,0,0,.5)'],[inner,'rgba(0,0,0,.5)'],
+    [(+inner+0.06).toFixed(3),'rgba(0,0,0,0)'],
+    ['0.92','rgba(0,0,0,0)'],['1','rgba(0,0,0,.45)']
+  ]);
+  grad(defs,'coneGrad','radialGradient',{cx:'38%',cy:'28%',r:'74%'},[
+    ['0','#f6ebc4'],['0.34','#d8b972'],['0.68','#9a7a38'],['1','#54401a']
+  ]);
+  grad(defs,'turretGrad','radialGradient',{cx:'36%',cy:'26%',r:'72%'},[
+    ['0','#fff8dc'],['0.4','#e0c078'],['0.75','#a3822f'],['1','#5d4718']
+  ]);
+  grad(defs,'turretCore','radialGradient',{cx:'34%',cy:'24%',r:'70%'},[
+    ['0','#ffffff'],['0.45','#f0dda2'],['1','#b08f3c']
+  ]);
+  svg.appendChild(defs);
+
+  const anglePer = 360/N;
+
+  // number pockets
+  for(let i=0;i<N;i++){
+    const num = WHEEL_ORDER[i];
+    const a0 = i*anglePer - 90 - anglePer/2;
+    const a1 = a0 + anglePer;
+    let fill = '#141414';
+    if(num==='0' || num==='00') fill = '#0c6b30';
+    else if(RED_NUMBERS.has(num)) fill = '#c81f33';
+    svg.appendChild(el('path',{d:sectorPath(R_POCKET_OUT,R_POCKET_IN,a0,a1),fill}));
+  }
+
+  // recessed shading over the whole ring (cone is drawn on top of the middle)
+  svg.appendChild(el('circle',{cx:CX,cy:CY,r:R_POCKET_OUT,fill:'url(#pocketDepth)'}));
+
+  // metal frets between pockets
+  for(let i=0;i<N;i++){
+    const a = i*anglePer - 90 - anglePer/2;
+    const [x1,y1] = polar(R_POCKET_IN-2, a);
+    const [x2,y2] = polar(R_POCKET_OUT+1, a);
+    svg.appendChild(el('line',{x1,y1,x2,y2,stroke:'#83878e',
+      'stroke-width':'2.6','stroke-linecap':'round'}));
+    svg.appendChild(el('line',{x1,y1,x2,y2,stroke:'#e9edf2',
+      'stroke-width':'1','stroke-linecap':'round',opacity:'.85'}));
+  }
+
+  // pocket numbers
+  for(let i=0;i<N;i++){
+    const num = WHEEL_ORDER[i];
+    const mid = i*anglePer - 90;
+    const [lx,ly] = polar(110, mid);
+    const t = el('text',{x:lx,y:ly,fill:'#fff','font-size':'11',
+      'font-weight':'bold','text-anchor':'middle','dominant-baseline':'middle',
+      stroke:'rgba(0,0,0,.55)','stroke-width':'.6','paint-order':'stroke',
+      transform:`rotate(${mid+90}, ${lx}, ${ly})`});
+    t.textContent = num;
+    svg.appendChild(t);
+  }
+
+  // central cone with spokes and turret
+  svg.appendChild(el('circle',{cx:CX,cy:CY,r:R_CONE,fill:'url(#coneGrad)'}));
+  for(let i=0;i<8;i++){
+    const a = i*45;
+    const [x1,y1] = polar(R_TURRET+2, a);
+    const [x2,y2] = polar(R_CONE-3, a);
+    svg.appendChild(el('line',{x1,y1,x2,y2,stroke:'rgba(255,255,255,.16)','stroke-width':'5'}));
+    svg.appendChild(el('line',{x1,y1,x2,y2,stroke:'rgba(0,0,0,.18)','stroke-width':'1.2'}));
+  }
+  svg.appendChild(el('circle',{cx:CX,cy:CY,r:R_CONE,fill:'none',
+    stroke:'rgba(0,0,0,.45)','stroke-width':'2'}));
+
+  svg.appendChild(el('circle',{cx:CX,cy:CY,r:R_TURRET,fill:'url(#turretGrad)'}));
+  svg.appendChild(el('circle',{cx:CX,cy:CY,r:R_TURRET,fill:'none',
+    stroke:'rgba(0,0,0,.4)','stroke-width':'1.5'}));
+  svg.appendChild(el('circle',{cx:CX,cy:CY,r:18,fill:'url(#turretCore)'}));
+  svg.appendChild(el('ellipse',{cx:CX-6,cy:CY-8,rx:9,ry:5,
+    fill:'rgba(255,255,255,.55)',transform:`rotate(-28, ${CX-6}, ${CY-8})`}));
+
+  wheelEl.appendChild(svg);
+}
+
+// ---- static sheen drawn over everything so the highlight never spins ----
+function buildGloss(){
+  glossEl.innerHTML = '';
+  const svg = newSvg();
+  const defs = el('defs', {});
+
+  grad(defs,'glossGrad','radialGradient',{cx:'50%',cy:'50%',r:'50%'},[
+    ['0','rgba(255,255,255,.34)'],['0.45','rgba(255,255,255,.12)'],['1','rgba(255,255,255,0)']
+  ]);
+  grad(defs,'vignette','radialGradient',{cx:'50%',cy:'56%',r:'62%'},[
+    ['0','rgba(0,0,0,0)'],['0.6','rgba(0,0,0,0)'],
+    ['0.85','rgba(0,0,0,.16)'],['1','rgba(0,0,0,.46)']
+  ]);
+  const clip = el('clipPath',{id:'wheelClip'});
+  clip.appendChild(el('circle',{cx:CX,cy:CY,r:R_RIM_OUT}));
+  defs.appendChild(clip);
+
+  const blur = el('filter',{id:'sheenBlur'});
+  blur.appendChild(el('feGaussianBlur',{stdDeviation:'4'}));
+  defs.appendChild(blur);
+  svg.appendChild(defs);
+
+  const g = el('g',{'clip-path':'url(#wheelClip)'});
+  g.appendChild(el('circle',{cx:CX,cy:CY,r:R_RIM_OUT,fill:'url(#vignette)'}));
+  g.appendChild(el('ellipse',{cx:118,cy:86,rx:112,ry:68,fill:'url(#glossGrad)',
+    transform:'rotate(-24, 118, 86)'}));
+  // specular streak along the top of the rim
+  const [sx,sy] = polar(161, 200), [ex,ey] = polar(161, 325);
+  g.appendChild(el('path',{d:`M${sx},${sy} A161,161 0 0 1 ${ex},${ey}`,fill:'none',
+    stroke:'rgba(255,255,255,.4)','stroke-width':'7','stroke-linecap':'round',
+    filter:'url(#sheenBlur)'}));
+  svg.appendChild(g);
+
+  glossEl.appendChild(svg);
+}
+
+// ---------------- Sound (synthesised, no audio files) ----------------
+// Browsers block audio until a user gesture, so the context is created lazily
+// on the first click and resumed if the browser suspended it.
+let audioCtx = null;
+let muted = false;
+
+function audio(){
+  if(muted) return null;
+  try{
+    if(!audioCtx){
+      const AC = window.AudioContext || window.webkitAudioContext;
+      if(!AC) return null;
+      audioCtx = new AC();
+    }
+    if(audioCtx.state === 'suspended') audioCtx.resume();
+    return audioCtx;
+  }catch(e){ return null; }
+}
+
+function tone(freq, dur, {type='sine', gain=.12, delay=0, sweepTo=null}={}){
+  const ctx = audio();
+  if(!ctx) return;
+  const t0 = ctx.currentTime + delay;
+  const osc = ctx.createOscillator();
+  const g = ctx.createGain();
+  osc.type = type;
+  osc.frequency.setValueAtTime(freq, t0);
+  if(sweepTo) osc.frequency.exponentialRampToValueAtTime(sweepTo, t0+dur);
+  g.gain.setValueAtTime(0.0001, t0);
+  g.gain.exponentialRampToValueAtTime(gain, t0+0.012);
+  g.gain.exponentialRampToValueAtTime(0.0001, t0+dur);
+  osc.connect(g).connect(ctx.destination);
+  osc.start(t0);
+  osc.stop(t0+dur+0.02);
+}
+
+function noiseBurst(dur, gain, delay=0){
+  const ctx = audio();
+  if(!ctx) return;
+  const frames = Math.floor(ctx.sampleRate * dur);
+  const buf = ctx.createBuffer(1, frames, ctx.sampleRate);
+  const data = buf.getChannelData(0);
+  for(let i=0;i<frames;i++) data[i] = (Math.random()*2-1) * (1 - i/frames);
+  const src = ctx.createBufferSource();
+  src.buffer = buf;
+  const g = ctx.createGain();
+  g.gain.value = gain;
+  const filt = ctx.createBiquadFilter();
+  filt.type = 'bandpass';
+  filt.frequency.value = 2600;
+  src.connect(filt).connect(g).connect(ctx.destination);
+  src.start(ctx.currentTime + delay);
+}
+
+const sfx = {
+  chip(){ tone(880, .06, {type:'triangle', gain:.09}); noiseBurst(.05, .05); },
+  spin(){ tone(180, .5, {type:'sawtooth', gain:.05, sweepTo:420}); },
+  rattle(delay){ noiseBurst(.05, .12, delay); },
+  settle(){ tone(320, .18, {type:'sine', gain:.14, sweepTo:150}); },
+  win(){ [523,659,784,1047].forEach((f,i)=>tone(f,.26,{type:'triangle',gain:.13,delay:i*.09})); },
+  lose(){ tone(200, .42, {type:'sine', gain:.1, sweepTo:110}); },
+  click(){ tone(600, .05, {type:'square', gain:.05}); }
+};
+
+// ---------------- Persistence ----------------
+const STORE_KEY = 'american-roulette-v1';
+
+function saveState(){
+  try{
+    localStorage.setItem(STORE_KEY, JSON.stringify({
+      balance, lang, muted, history, lastBets, lastResultData
+    }));
+  }catch(e){ /* storage blocked (private mode, quota) — game still runs */ }
+}
+
+function loadState(){
+  try{
+    const raw = localStorage.getItem(STORE_KEY);
+    if(!raw) return;
+    const s = JSON.parse(raw);
+    if(typeof s.balance === 'number' && isFinite(s.balance) && s.balance >= 0) balance = Math.floor(s.balance);
+    if(s.lang === 'zh' || s.lang === 'en') lang = s.lang;
+    if(typeof s.muted === 'boolean') muted = s.muted;
+    if(Array.isArray(s.history)) history = s.history.slice(0, 20);
+    if(s.lastBets && typeof s.lastBets === 'object' && !Array.isArray(s.lastBets)) lastBets = s.lastBets;
+    if(s.lastResultData && typeof s.lastResultData === 'object') lastResultData = s.lastResultData;
+  }catch(e){ /* corrupt payload — fall back to a fresh game */ }
+}
+
+// ---------------- Spin logic ----------------
+let wheelRotation = 0;
+let ballRotation = 0;
+const SPIN_MS = 4200;
+
+// Distance from the wheel centre to the ball's resting spot, in wheel units:
+// 143.5 = on the outer ball track, 110 = seated in the pocket ring.
+const BALL_TRACK_D = 143.5, BALL_POCKET_D = 110;
+const reduceMotion = window.matchMedia
+  && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+function setBallTransform(angle, inward){
+  document.getElementById('ball').style.transform =
+    `rotate(${angle}deg) translateY(${inward}px)`;
+}
+
+// Hand-driven so the ball can decelerate and drop inward independently of its
+// orbit — a single CSS transition can only do one of those.
+function animateBall(fromAngle, toAngle, duration){
+  const drop = BALL_TRACK_D - BALL_POCKET_D;
+  if(reduceMotion){ setBallTransform(toAngle, drop); return; }
+
+  const start = performance.now();
+  const sweep = toAngle - fromAngle;
+  function frame(now){
+    const x = Math.min(1, (now - start) / duration);
+    const eased = 1 - Math.pow(1 - x, 3);          // fast start, long glide out
+    const angle = fromAngle + sweep*eased;
+
+    // stays on the track, then spirals in over the last 40% with a couple of
+    // damped hops as it catches the frets
+    let inward = 0;
+    if(x > 0.6){
+      const u = (x - 0.6) / 0.4;
+      const settle = 1 - Math.pow(1 - u, 2);
+      const hop = Math.exp(-4.5*u) * Math.abs(Math.sin(u*Math.PI*2.5)) * 7;
+      inward = Math.max(0, drop*settle - hop);
+    }
+    setBallTransform(angle, inward);
+    if(x < 1) requestAnimationFrame(frame);
+    else setBallTransform(toAngle, drop);
+  }
+  requestAnimationFrame(frame);
+}
+
+function spin(){
+  if(spinning) return;
+  const total = totalBetAmount();
+  if(total===0){ setMessage('msgBetFirst'); return; }
+  const short = belowMinimumSpots();
+  if(short.length > 0){
+    setMessage('msgBelowMin', MIN_BET_PER_SPOT, short.length);
+    return;
+  }
+  spinning = true;
+  document.getElementById('spinBtn').disabled = true;
+
+  // Snapshot the bets now, before the wheel animates. resolveSpin() must settle exactly
+  // what was wagered at spin time, not whatever `bets` happens to contain 4+ seconds later.
+  const betsSnapshot = { ...bets };
+  lastBets = betsSnapshot; // remembered for the "repeat last bet" button
+  const betsTotal = total;
+
+  const winIndex = Math.floor(Math.random()*N);
+  const winNumber = WHEEL_ORDER[winIndex];
+  const anglePer = 360/N;
+
+  function mod(a,m){ return ((a%m)+m)%m; }
+
+  // The wheel rotates by subtracting degrees over time, so its cumulative rotation
+  // drifts arbitrarily far from a multiple of 360. To make winIndex land exactly under
+  // the pointer (top, local slice-center angle = -90deg) we must land on an ABSOLUTE
+  // target angle (mod 360), not just subtract this spin's slice offset from whatever
+  // rotation happens to be left over from previous spins.
+  const desiredMod = mod(-winIndex*anglePer, 360);
+  const extraSpins = 5 + Math.floor(Math.random()*3);
+  const base = wheelRotation - extraSpins*360;
+  const baseMod = mod(base, 360);
+  const newWheelRotation = base - mod(baseMod - desiredMod, 360);
+  wheelEl.style.transform = `rotate(${newWheelRotation}deg)`;
+  wheelRotation = newWheelRotation;
+
+  // The ball must finish at the TOP (angle 0), because that is where the winning
+  // pocket ends up under the pointer. It travels counter to the rotor, then
+  // spirals down off the track into the pocket ring.
+  const ballExtra = 7 + Math.floor(Math.random()*3);
+  const ballBase = ballRotation + ballExtra*360;
+  const newBallRotation = ballBase + mod(0 - mod(ballBase,360), 360);
+  animateBall(ballRotation, newBallRotation, SPIN_MS);
+  ballRotation = newBallRotation;
+
+  sfx.spin();
+  for(let i=0;i<9;i++) sfx.rattle(0.35 + i*0.34 + Math.random()*0.1);
+
+  setMessage('msgSpinning');
+
+  setTimeout(()=> resolveSpin(winNumber, betsSnapshot, betsTotal), SPIN_MS);
+}
+
+function resolveSpin(winNumber, betsSnapshot, betsTotal){
+  spinning = false;
+  document.getElementById('spinBtn').disabled = false;
+
+  let winnings = 0;
+  for(const key in betsSnapshot){
+    const amt = betsSnapshot[key];
+    winnings += payout(key, amt, winNumber);
+  }
+
+  balance = balance - betsTotal + winnings;
+  renderBalance();
+
+  const col = colorOf(winNumber);
+  lastResultData = {num: winNumber, col};
+  renderLastResult();
+
+  addHistory(winNumber, col);
+
+  sfx.settle();
+  if(winnings>0){
+    setTimeout(()=>sfx.win(), 140);
+    setMessage('msgWin', winNumber, winnings);
+  } else {
+    setTimeout(()=>sfx.lose(), 140);
+    setMessage('msgLose', winNumber);
+  }
+
+  clearBets();
+  saveState();
+
+  if(balance<=0){
+    setMessage('msgBroke');
+  }
+}
+
+function addHistory(num, col){
+  history.unshift({num,col});
+  history = history.slice(0,20);
+  renderHistory();
+}
+
+// Separate from addHistory so a restored history can be drawn on load.
+function renderHistory(){
+  const box = document.getElementById('history');
+  box.innerHTML = '';
+  history.forEach(h=>{
+    const d = document.createElement('div');
+    d.className = 'hist-num';
+    d.style.background = h.col==='green'?'#0d6b31':(h.col==='red'?'#d1263a':'#1a1a1a');
+    d.textContent = h.num;
+    box.appendChild(d);
+  });
+}
+
+// payout: returns TOTAL returned (including original stake) if win, else 0
+const SPLIT_PAYOUT = {1:36, 2:18, 3:12, 4:9, 6:6};
+
+function payout(key, amt, num){
+  const isRed = RED_NUMBERS.has(num);
+  const isNumber = (typeof num === 'number');
+  const winStr = String(num);
+
+  if(key==='nZ') return (num==='0') ? amt*36 : 0;
+  if(key==='nDZ') return (num==='00') ? amt*36 : 0;
+  if(key.startsWith('n') && isNumber){
+    const n = parseInt(key.slice(1));
+    return (n===num) ? amt*36 : 0;
+  }
+  if(key.startsWith('split_') || key.startsWith('corner_') || key.startsWith('street_') || key.startsWith('sixline_')){
+    const nums = hotspotNumbers[key] || [];
+    if(!nums.includes(winStr)) return 0;
+    return amt * SPLIT_PAYOUT[nums.length];
+  }
+  if(key.startsWith('col')){ // columns col0=3rd(top row nums %3==0), col1=2nd, col2=1st -- our order pushed as 3rd,2nd,1st
+    if(!isNumber) return 0;
+    const mod = num % 3;
+    // top row numbers (3,6,9...) => mod 0 => '3rd' label first pushed = col0
+    const colIdx = mod===0?0:(mod===2?1:2);
+    return (key==='col'+colIdx) ? amt*3 : 0;
+  }
+  if(key.startsWith('d')){
+    if(!isNumber) return 0;
+    const idx = key==='d0'?[1,12]:key==='d1'?[13,24]:[25,36];
+    return (num>=idx[0] && num<=idx[1]) ? amt*3 : 0;
+  }
+  if(key==='low') return (isNumber && num>=1 && num<=18) ? amt*2 : 0;
+  if(key==='high') return (isNumber && num>=19 && num<=36) ? amt*2 : 0;
+  if(key==='even') return (isNumber && num!==0 && num%2===0) ? amt*2 : 0;
+  if(key==='odd') return (isNumber && num%2===1) ? amt*2 : 0;
+  if(key==='red') return (isNumber && isRed) ? amt*2 : 0;
+  if(key==='black') return (isNumber && !isRed) ? amt*2 : 0;
+  return 0;
+}
+
+// ---------------- Startup (must run after every declaration above) ----------------
+document.getElementById('langBtn').addEventListener('click', ()=>{
+  lang = (lang === 'zh') ? 'en' : 'zh';
+  applyLang();
+  saveState();
+});
+
+document.getElementById('undoBtn').addEventListener('click', undoLastChip);
+
+const muteBtn = document.getElementById('muteBtn');
+function renderMuteBtn(){
+  muteBtn.textContent = muted ? '🔇' : '🔊';
+  muteBtn.setAttribute('aria-pressed', String(muted));
+  muteBtn.setAttribute('aria-label', muted ? 'Unmute sound' : 'Mute sound');
+}
+muteBtn.addEventListener('click', ()=>{
+  muted = !muted;
+  renderMuteBtn();
+  if(!muted) sfx.click();
+  saveState();
+});
+
+buildFrame();
+buildWheel();
+buildGloss();
+
+loadState();                 // restore balance, language, mute, history, last bet
+renderMuteBtn();
+renderHistory();
+renderBalance();
+setBallTransform(0, lastResultData ? BALL_TRACK_D - BALL_POCKET_D : 0);
+applyLang();   // also renders the welcome message and the odds panel
+
+document.getElementById('spinBtn').addEventListener('click', spin);
+</script>
+</body>
+</html>

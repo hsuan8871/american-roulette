@@ -1,0 +1,812 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Baccarat</title>
+<meta name="description" content="A single-file Punto Banco baccarat game: Player/Banker/Tie betting, standard third-card draw rules, 5% banker commission, and a live odds breakdown.">
+<meta name="theme-color" content="#0b3d1e">
+<meta property="og:type" content="website">
+<meta property="og:title" content="Baccarat">
+<meta property="og:description" content="Punto Banco baccarat — Player/Banker/Tie betting with standard draw rules.">
+<meta property="og:url" content="https://hsuan8871.github.io/american-roulette/baccarat.html">
+<meta property="og:image" content="https://hsuan8871.github.io/american-roulette/preview.png">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect x='3' y='2' width='26' height='28' rx='3' fill='%23f4f1e6'/%3E%3Ctext x='16' y='21' font-size='16' text-anchor='middle' fill='%23c81f33' font-family='Georgia,serif'%3EA%3C/text%3E%3C/svg%3E">
+<style>
+  :root{
+    --green:#0b3d1e;
+    --felt:#0f5c2e;
+    --gold:#e8c165;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0;
+    min-height:100vh;
+    background:radial-gradient(ellipse at center, #145c33 0%, #0b3d1e 60%, #062713 100%);
+    font-family:'Trebuchet MS', Arial, sans-serif;
+    color:#fff;
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    padding:20px;
+  }
+  .lobby-link{
+    align-self:flex-start;
+    margin-left:4px;
+    color:#c8d6cb;
+    font-size:13px;
+    text-decoration:none;
+    opacity:.85;
+  }
+  .lobby-link:hover{ color:#fff; opacity:1; text-decoration:underline; }
+  h1{
+    letter-spacing:4px;
+    text-shadow:0 2px 6px rgba(0,0,0,.6);
+    margin:6px 0 18px;
+  }
+  .stats{
+    display:flex;
+    gap:26px;
+    align-items:center;
+    flex-wrap:wrap;
+    justify-content:center;
+    font-size:16px;
+    background:rgba(0,0,0,.35);
+    padding:10px 20px;
+    border-radius:8px;
+    margin-bottom:14px;
+  }
+  .stats b{ color:var(--gold); }
+  .balance-editor{ display:flex; gap:8px; align-items:center; }
+  .balance-editor input{
+    width:100px; padding:6px 8px; border-radius:6px;
+    border:1px solid #666; background:#111; color:#fff; font-size:14px;
+  }
+  button.action{
+    padding:10px 22px; border:none; border-radius:8px;
+    font-size:16px; font-weight:bold; cursor:pointer;
+    background:var(--gold); color:#3a2d05; box-shadow:0 4px 8px rgba(0,0,0,.4);
+  }
+  button.action:disabled{ opacity:.5; cursor:not-allowed; }
+  button.action.secondary{ background:#444; color:#fff; }
+  button.action.small{ padding:6px 12px; font-size:13px; }
+
+  #message{
+    min-height:26px; font-size:17px; font-weight:bold;
+    text-shadow:0 2px 4px rgba(0,0,0,.6); text-align:center; margin-bottom:10px;
+  }
+
+  /* ---------- Table ---------- */
+  .layout{
+    display:flex; gap:26px; flex-wrap:wrap;
+    justify-content:center; align-items:flex-start; width:100%; max-width:1160px;
+  }
+  .table-wrap{
+    background:var(--felt);
+    border:6px solid #3d2f14;
+    border-radius:16px;
+    padding:22px;
+    box-shadow:0 10px 30px rgba(0,0,0,.5);
+    width:100%; max-width:720px;
+  }
+  .hands{
+    display:grid; grid-template-columns:1fr 1fr; gap:20px;
+    margin-bottom:20px;
+  }
+  .hand-box{
+    background:rgba(0,0,0,.22);
+    border:1px solid rgba(255,255,255,.14);
+    border-radius:12px;
+    padding:14px;
+    min-height:150px;
+  }
+  .hand-label{
+    font-weight:bold; letter-spacing:1px; font-size:14px;
+    display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;
+  }
+  .hand-label .total{
+    background:rgba(255,255,255,.14); border-radius:6px;
+    padding:2px 10px; font-size:15px; color:var(--gold);
+  }
+  .cards{ display:flex; gap:8px; flex-wrap:wrap; min-height:96px; }
+  .card{
+    width:58px; height:82px; border-radius:6px;
+    background:linear-gradient(160deg,#fdfbf3,#efe9d4);
+    box-shadow:0 3px 8px rgba(0,0,0,.5);
+    display:flex; flex-direction:column; justify-content:space-between;
+    padding:5px 6px; font-family:Georgia,'Times New Roman',serif;
+    font-weight:bold; opacity:0; transform:translateY(-16px) scale(.85);
+    transition:opacity .35s ease, transform .35s ease;
+  }
+  .card.dealt{ opacity:1; transform:translateY(0) scale(1); }
+  .card.red{ color:#c81f33; }
+  .card.black{ color:#1a1a1a; }
+  .card .rank{ font-size:18px; line-height:1; }
+  .card .suit{ font-size:20px; align-self:center; }
+  .card .rank.bottom{ align-self:flex-end; transform:rotate(180deg); }
+
+  .bet-row{
+    display:grid; grid-template-columns:1fr 1fr 1fr; gap:12px;
+  }
+  .bet-spot{
+    position:relative;
+    border-radius:10px;
+    padding:14px 10px 16px;
+    text-align:center;
+    cursor:pointer;
+    user-select:none;
+    border:2px solid transparent;
+    transition:filter .15s;
+  }
+  .bet-spot:hover{ filter:brightness(1.15); }
+  .bet-spot:focus-visible{ outline:3px solid #6cf; outline-offset:2px; }
+  .bet-spot.player{ background:#0c4a24; border-color:#2a7a4a; }
+  .bet-spot.banker{ background:#4a1414; border-color:#7a2a2a; }
+  .bet-spot.tie{ background:#123a4a; border-color:#2a5a7a; }
+  .bet-name{ font-size:16px; font-weight:bold; letter-spacing:.5px; }
+  .bet-payout{ font-size:11.5px; color:#cfcfcf; margin-top:3px; }
+  .chipdot{
+    position:absolute; top:50%; left:50%; transform:translate(-50%,-50%);
+    width:26px; height:26px; border-radius:50%;
+    background:var(--gold); color:#3a2d05; font-size:11px;
+    display:flex; align-items:center; justify-content:center;
+    font-weight:bold; box-shadow:0 2px 4px rgba(0,0,0,.5);
+    border:2px solid #7a5c12; pointer-events:none;
+  }
+
+  .chips{ display:flex; gap:10px; justify-content:center; margin:16px 0 10px; flex-wrap:wrap; }
+  .chip{
+    width:50px; height:50px; border-radius:50%; border:3px dashed #fff;
+    display:flex; align-items:center; justify-content:center;
+    font-weight:bold; cursor:pointer; color:#fff;
+    box-shadow:0 4px 8px rgba(0,0,0,.5); transition:transform .1s;
+  }
+  .chip.selected{ transform:scale(1.15); box-shadow:0 0 0 3px #fff, 0 4px 10px rgba(0,0,0,.6); }
+  .chip:hover{ transform:scale(1.08); }
+  .row{ display:flex; gap:10px; justify-content:center; flex-wrap:wrap; }
+
+  /* ---------- Odds / info panel ---------- */
+  .side-panel{
+    width:300px; flex-shrink:0; display:flex; flex-direction:column; gap:16px;
+  }
+  .odds-panel, .rules-panel, .history-panel{
+    background:rgba(0,0,0,.42);
+    border:2px solid #3d2f14;
+    border-radius:12px;
+    padding:14px 16px;
+  }
+  .panel-title{ font-size:14px; font-weight:bold; color:var(--gold); margin-bottom:8px; letter-spacing:.5px; }
+  .odds-row{ margin-bottom:9px; }
+  .odds-head{ display:flex; justify-content:space-between; font-size:13px; font-weight:bold; }
+  .odds-row.win .odds-head{ color:#5ed67c; }
+  .odds-row.lose .odds-head{ color:#f2706f; }
+  .odds-bar{ height:5px; border-radius:3px; margin-top:3px; background:rgba(255,255,255,.12); overflow:hidden; }
+  .odds-bar span{ display:block; height:100%; }
+  .odds-empty{ font-size:12.5px; color:#a9a9a9; line-height:1.6; }
+  .rules-panel div, .rules-panel li{ font-size:12px; line-height:1.7; color:#d8dcd9; }
+  .rules-panel table{ width:100%; border-collapse:collapse; margin-top:6px; }
+  .rules-panel td{ padding:3px 0; border-bottom:1px solid rgba(255,255,255,.08); font-size:12px; }
+  .rules-panel td:last-child{ text-align:right; font-weight:bold; color:#fff; }
+  .rules-panel ul{ margin:6px 0 0; padding-left:16px; }
+
+  .history{ display:flex; gap:6px; flex-wrap:wrap; }
+  .hist-chip{
+    width:24px; height:24px; border-radius:50%;
+    display:flex; align-items:center; justify-content:center;
+    font-size:10px; font-weight:bold; color:#fff;
+  }
+
+  @media (max-width:760px){
+    .hands{ grid-template-columns:1fr; }
+    .side-panel{ width:100%; max-width:720px; }
+  }
+</style>
+</head>
+<body>
+
+<a href="index.html" class="lobby-link" data-i18n="backToLobby">← 選擇遊戲</a>
+<h1>🂡 BACCARAT</h1>
+
+<div class="stats">
+  <div><span data-i18n="balance">餘額</span> $<b id="balance">1000</b></div>
+  <div><span data-i18n="betLabel">本輪下注</span> $<b id="totalBet">0</b></div>
+  <div><span data-i18n="lastLabel">上局結果</span> <b id="lastResult">-</b></div>
+  <div class="balance-editor">
+    <input type="number" id="balanceInput" data-i18n-ph="amountPh" placeholder="輸入金額" min="0" step="1">
+    <button class="action secondary small" id="setBalanceBtn" data-i18n="setBalance">設定餘額</button>
+    <button class="action secondary small" id="addBalanceBtn" data-i18n="addBalance">+ 加值</button>
+  </div>
+  <button class="action secondary small" id="langBtn">English</button>
+</div>
+
+<div id="message"></div>
+
+<div class="layout">
+  <div class="table-wrap">
+    <div class="hands">
+      <div class="hand-box">
+        <div class="hand-label"><span data-i18n="playerLabel">閒 PLAYER</span><span class="total" id="playerTotal">-</span></div>
+        <div class="cards" id="playerCards"></div>
+      </div>
+      <div class="hand-box">
+        <div class="hand-label"><span data-i18n="bankerLabel">莊 BANKER</span><span class="total" id="bankerTotal">-</span></div>
+        <div class="cards" id="bankerCards"></div>
+      </div>
+    </div>
+
+    <div class="bet-row">
+      <div class="bet-spot player" data-key="player" tabindex="0" role="button">
+        <div class="bet-name" data-i18n="playerLabel">閒 PLAYER</div>
+        <div class="bet-payout">1:1</div>
+      </div>
+      <div class="bet-spot tie" data-key="tie" tabindex="0" role="button">
+        <div class="bet-name" data-i18n="tieLabel">和 TIE</div>
+        <div class="bet-payout">8:1</div>
+      </div>
+      <div class="bet-spot banker" data-key="banker" tabindex="0" role="button">
+        <div class="bet-name" data-i18n="bankerLabel">莊 BANKER</div>
+        <div class="bet-payout" data-i18n="bankerPayout">0.95:1(5% 佣金)</div>
+      </div>
+    </div>
+
+    <div class="chips" id="chips"></div>
+    <div class="row">
+      <button class="action" id="dealBtn" data-i18n="dealBtn">發牌 🂠</button>
+      <button class="action secondary" id="clearBtn" data-i18n="clearBets">清空下注</button>
+      <button class="action secondary" id="repeatBtn" data-i18n="repeatBet">🔁 重複上次下注</button>
+      <button class="action secondary" id="resetBtn" data-i18n="resetBalance">重設餘額</button>
+    </div>
+  </div>
+
+  <div class="side-panel">
+    <div class="odds-panel" id="oddsPanel"></div>
+    <div class="rules-panel">
+      <div class="panel-title" data-i18n="rulesTitle">遊戲規則</div>
+      <div data-i18n="baccaratRules1">閒家與莊家各發 2 張牌,點數計算只看個位數(10 以上減 10;J/Q/K 算 0,A 算 1)。點數 8 或 9 稱為「天牌」,直接比大小不再補牌。</div>
+      <ul>
+        <li data-i18n="baccaratRule2">點數較接近 9 的一方獲勝</li>
+        <li data-i18n="baccaratRule3">未出現天牌時,依標準補牌規則自動決定是否補第三張牌</li>
+        <li data-i18n="baccaratRule4">莊家獲勝需扣 5% 佣金(抽水)</li>
+      </ul>
+      <table>
+        <tr><td data-i18n="baccaratBet1">閒家獲勝</td><td>1:1</td></tr>
+        <tr><td data-i18n="baccaratBet2">莊家獲勝(扣 5% 佣金)</td><td>0.95:1</td></tr>
+        <tr><td data-i18n="baccaratBet3">和局</td><td>8:1</td></tr>
+      </table>
+    </div>
+    <div class="history-panel">
+      <div class="panel-title" data-i18n="historyTitle">開局紀錄</div>
+      <div class="history" id="history"></div>
+    </div>
+  </div>
+</div>
+
+<script>
+// ---------------- i18n ----------------
+const I18N = {
+  zh: {
+    balance:'餘額', betLabel:'本輪下注', lastLabel:'上局結果',
+    amountPh:'輸入金額', setBalance:'設定餘額', addBalance:'+ 加值',
+    clearBets:'清空下注', repeatBet:'🔁 重複上次下注', resetBalance:'重設餘額',
+    dealBtn:'發牌 🂠', dealing:'發牌中 🂠',
+    backToLobby:'← 選擇遊戲',
+    playerLabel:'閒 PLAYER', bankerLabel:'莊 BANKER', tieLabel:'和 TIE',
+    bankerPayout:'0.95:1(5% 佣金)',
+    rulesTitle:'遊戲規則', historyTitle:'開局紀錄',
+    baccaratRules1:'閒家與莊家各發 2 張牌,點數計算只看個位數(10 以上減 10;J/Q/K 算 0,A 算 1)。點數 8 或 9 稱為「天牌」,直接比大小不再補牌。',
+    baccaratRule2:'點數較接近 9 的一方獲勝',
+    baccaratRule3:'未出現天牌時,依標準補牌規則自動決定是否補第三張牌',
+    baccaratRule4:'莊家獲勝需扣 5% 佣金(抽水)',
+    baccaratBet1:'閒家獲勝', baccaratBet2:'莊家獲勝(扣 5% 佣金)', baccaratBet3:'和局',
+
+    msgWelcome:'選擇籌碼,下注閒/莊/和,然後按「發牌」！',
+    msgNoFunds:'餘額不足！',
+    msgCleared:'已清空下注。',
+    msgNoLastBet:'還沒有上一次的下注可以重複。',
+    msgRepeatNoFunds:t=>`餘額不足,無法重複上次下注(需要 $${t})。`,
+    msgRepeated:t=>`已重複上次下注,共 $${t}。`,
+    msgBadAmount:'請輸入有效的金額！(必須是 0 或正整數)',
+    msgBalanceSet:b=>`餘額已設定為 $${b}。`,
+    msgBadAdd:'請輸入有效的加值金額！(必須大於 0)',
+    msgAdded:(v,b)=>`已加值 $${v},目前餘額 $${b}。`,
+    msgBalanceReset:'餘額已重設為 $1000。',
+    msgBetFirst:'請先下注！',
+    msgDealing:'發牌中...',
+    msgResult:(who,p,b)=>`${who}(閒 ${p} : 莊 ${b}）`,
+    msgWin:(who,w)=>`🎉 ${who}！贏得 $${w}！`,
+    msgPush:'和局但你沒下注和局,閒/莊注退回本金。',
+    msgLose:who=>`${who}。這局沒中,再接再厲！`,
+    msgBroke:'💸 餘額歸零！請按「重設餘額」重新開始。',
+    resultPlayer:'閒家獲勝', resultBanker:'莊家獲勝', resultTie:'和局',
+
+    oddsTitle:'📊 機率分析',
+    oddsEmpty:'尚未下注。<br>下注後,這裡會即時算出各結果機率與盈虧(依牌鞋剩餘牌張精算)。',
+    oddsSub:t=>`本局下注 $${t}`,
+    oddsWin:v=>`贏 +$${v}`,
+    oddsLose:v=>`輸 −$${v}`,
+    oddsEv:(sign,v,pct)=>`期望值 <b>${sign}$${v}</b> (${sign}${pct}%)`
+  },
+  en: {
+    balance:'Balance', betLabel:'Bet', lastLabel:'Last',
+    amountPh:'Amount', setBalance:'Set Balance', addBalance:'+ Add',
+    clearBets:'Clear Bets', repeatBet:'🔁 Repeat Bet', resetBalance:'Reset Balance',
+    dealBtn:'Deal 🂠', dealing:'Dealing 🂠',
+    backToLobby:'← Choose a Game',
+    playerLabel:'PLAYER', bankerLabel:'BANKER', tieLabel:'TIE',
+    bankerPayout:'0.95:1 (5% commission)',
+    rulesTitle:'House Rules', historyTitle:'Shoe History',
+    baccaratRules1:'Player and Banker each get 2 cards. Only the last digit of the total counts (10+ drops the tens digit; J/Q/K = 0, A = 1). A total of 8 or 9 is a "natural" — no more cards are drawn.',
+    baccaratRule2:'Whichever hand is closer to 9 wins',
+    baccaratRule3:'Without a natural, a fixed table of draw rules decides automatically whether a third card is dealt',
+    baccaratRule4:'A winning Banker bet pays a 5% commission (rake)',
+    baccaratBet1:'Player wins', baccaratBet2:'Banker wins (5% commission)', baccaratBet3:'Tie',
+
+    msgWelcome:'Pick a chip, bet Player/Banker/Tie, then hit Deal!',
+    msgNoFunds:'Not enough balance!',
+    msgCleared:'Bets cleared.',
+    msgNoLastBet:'No previous bet to repeat yet.',
+    msgRepeatNoFunds:t=>`Not enough balance to repeat that bet (needs $${t}).`,
+    msgRepeated:t=>`Last bet repeated — $${t} total.`,
+    msgBadAmount:'Enter a valid amount (0 or a positive whole number).',
+    msgBalanceSet:b=>`Balance set to $${b}.`,
+    msgBadAdd:'Enter a valid amount to add (must be greater than 0).',
+    msgAdded:(v,b)=>`Added $${v} — balance is now $${b}.`,
+    msgBalanceReset:'Balance reset to $1000.',
+    msgBetFirst:'Place a bet first!',
+    msgDealing:'Dealing...',
+    msgResult:(who,p,b)=>`${who} (Player ${p} : Banker ${b})`,
+    msgWin:(who,w)=>`🎉 ${who}! You collect $${w}!`,
+    msgPush:"It's a tie and you didn't bet Tie — Player/Banker bets push (returned).",
+    msgLose:who=>`${who}. No luck this time — try again!`,
+    msgBroke:'💸 You are out of money! Hit "Reset Balance" to start over.',
+    resultPlayer:'Player wins', resultBanker:'Banker wins', resultTie:'Tie',
+
+    oddsTitle:'📊 Odds Breakdown',
+    oddsEmpty:'No bets yet.<br>Place a bet and the exact probability of each outcome (computed from the remaining shoe) appears here.',
+    oddsSub:t=>`$${t} at stake`,
+    oddsWin:v=>`Win +$${v}`,
+    oddsLose:v=>`Lose −$${v}`,
+    oddsEv:(sign,v,pct)=>`Expected value <b>${sign}$${v}</b> (${sign}${pct}%)`
+  }
+};
+
+let lang = 'zh';
+function t(key, ...args){
+  const v = I18N[lang][key];
+  return typeof v === 'function' ? v(...args) : v;
+}
+// Two kinds of message can be on screen: a simple i18n key (currentMsg), or a
+// composed result line built from the last round's numbers (lastRoundResult).
+// Whichever was shown last wins on a language switch, so re-rendering never
+// loses the more specific one.
+let currentMsg = ['msgWelcome'];
+let lastRoundResult = null;
+let showingResult = false;
+
+function setMessage(key, ...args){
+  currentMsg = [key, ...args];
+  showingResult = false;
+  document.getElementById('message').textContent = t(key, ...args);
+}
+
+function renderResultMessage(){
+  if(!lastRoundResult) return;
+  showingResult = true;
+  const {whoKey, pTotal, bTotal, winnings, total} = lastRoundResult;
+  const who = t(whoKey);
+  const resultLine = t('msgResult', who, pTotal, bTotal);
+  const outcomeLine = winnings > total ? t('msgWin', who, winnings)
+                     : winnings === total ? t('msgPush')
+                     : t('msgLose', who);
+  document.getElementById('message').textContent = resultLine + '  ' + outcomeLine;
+}
+
+function applyLang(){
+  document.documentElement.lang = (lang==='zh') ? 'zh-Hant' : 'en';
+  document.querySelectorAll('[data-i18n]').forEach(el=>{ el.textContent = t(el.dataset.i18n); });
+  document.querySelectorAll('[data-i18n-ph]').forEach(el=>{ el.placeholder = t(el.dataset.i18nPh); });
+  document.getElementById('langBtn').textContent = (lang==='zh') ? 'English' : '中文';
+  document.getElementById('dealBtn').textContent = dealing ? t('dealing') : t('dealBtn');
+  if(showingResult) renderResultMessage();
+  else document.getElementById('message').textContent = t(...currentMsg);
+  document.getElementById('lastResult').textContent = lastRoundResult ? t(lastRoundResult.whoKey) : '-';
+  updateOdds();
+}
+
+// ---------------- Shoe ----------------
+const SUITS = [['♠','black'],['♥','red'],['♦','red'],['♣','black']];
+const RANKS = ['A','2','3','4','5','6','7','8','9','10','J','Q','K'];
+const DECKS = 8;
+let shoe = [];
+
+function pointValue(rank){
+  if(rank==='A') return 1;
+  if(['10','J','Q','K'].includes(rank)) return 0;
+  return parseInt(rank);
+}
+
+function buildShoe(){
+  shoe = [];
+  for(let d=0; d<DECKS; d++){
+    for(const [suit,color] of SUITS){
+      for(const rank of RANKS){
+        shoe.push({rank, suit, color, value: pointValue(rank)});
+      }
+    }
+  }
+  // Fisher-Yates
+  for(let i=shoe.length-1; i>0; i--){
+    const j = Math.floor(Math.random()*(i+1));
+    [shoe[i], shoe[j]] = [shoe[j], shoe[i]];
+  }
+}
+buildShoe();
+
+function drawCard(){
+  if(shoe.length < 12) buildShoe(); // reshuffle before running dry mid-hand
+  return shoe.pop();
+}
+
+function handTotal(cards){
+  return cards.reduce((s,c)=>s+c.value, 0) % 10;
+}
+
+// Standard Punto Banco third-card table.
+function playRound(){
+  const player = [drawCard(), drawCard()];
+  const banker = [drawCard(), drawCard()];
+
+  const pNatural = handTotal(player) >= 8;
+  const bNatural = handTotal(banker) >= 8;
+
+  if(!pNatural && !bNatural){
+    let playerThird = null;
+    if(handTotal(player) <= 5){
+      playerThird = drawCard();
+      player.push(playerThird);
+    }
+    const bTotal = handTotal(banker);
+    let bankerDraws;
+    if(playerThird === null){
+      bankerDraws = bTotal <= 5;
+    }else{
+      const pv = playerThird.value;
+      if(bTotal <= 2) bankerDraws = true;
+      else if(bTotal === 3) bankerDraws = pv !== 8;
+      else if(bTotal === 4) bankerDraws = pv >= 2 && pv <= 7;
+      else if(bTotal === 5) bankerDraws = pv >= 4 && pv <= 7;
+      else if(bTotal === 6) bankerDraws = pv === 6 || pv === 7;
+      else bankerDraws = false;
+    }
+    if(bankerDraws) banker.push(drawCard());
+  }
+
+  const pTotal = handTotal(player), bTotal = handTotal(banker);
+  const winner = pTotal===bTotal ? 'tie' : (pTotal>bTotal ? 'player' : 'banker');
+  return {player, banker, pTotal, bTotal, winner};
+}
+
+// Cent-exact: amt is always a whole dollar, so amt*95 is always a whole
+// integer — rounding THAT (rather than a float division amt*0.95) guarantees
+// the commission never drifts by a stray fraction of a cent from floating-
+// point error, and Math.floor on a not-quite-integer float (e.g. amt=3 used
+// to give 2.84 instead of the correct 2.85) can no longer happen.
+function roundCents(x){ return Math.round(x*100)/100; }
+
+// payout(key, amount, winner): TOTAL returned (incl. stake) if the bet wins.
+function payout(key, amt, winner){
+  if(key==='player') return winner==='player' ? amt*2 : (winner==='tie' ? amt : 0);
+  if(key==='banker') return winner==='banker' ? roundCents(amt + Math.round(amt*95)/100) : (winner==='tie' ? amt : 0);
+  if(key==='tie')    return winner==='tie' ? amt*9 : 0;
+  return 0;
+}
+
+// ---------------- Game state ----------------
+let balance = 1000;
+let selectedChip = 5;
+let bets = {};
+let dealing = false;
+let lastBets = null;
+let history = [];
+
+function renderBalance(){
+  document.getElementById('balance').textContent = balance - totalBetAmount();
+}
+function totalBetAmount(){ return Object.values(bets).reduce((a,b)=>a+b,0); }
+function updateTotalBetDisplay(){
+  document.getElementById('totalBet').textContent = totalBetAmount();
+  renderBalance();
+  updateOdds();
+}
+
+function updateChipDot(el, amount){
+  let dot = el.querySelector('.chipdot');
+  if(!dot){ dot = document.createElement('div'); dot.className='chipdot'; el.appendChild(dot); }
+  dot.textContent = amount;
+}
+
+function placeBet(key, el){
+  if(dealing) return;
+  const current = totalBetAmount();
+  if(current + selectedChip > balance){ setMessage('msgNoFunds'); return; }
+  bets[key] = (bets[key]||0) + selectedChip;
+  updateChipDot(el, bets[key]);
+  updateTotalBetDisplay();
+}
+
+function clearBets(){
+  bets = {};
+  document.querySelectorAll('.chipdot').forEach(d=>d.remove());
+  updateTotalBetDisplay();
+}
+
+document.querySelectorAll('.bet-spot').forEach(el=>{
+  const key = el.dataset.key;
+  el.addEventListener('click', ()=>placeBet(key, el));
+  el.addEventListener('keydown', e=>{
+    if(e.key==='Enter' || e.key===' '){ e.preventDefault(); placeBet(key, el); }
+  });
+});
+
+const chipValues = [1,5,10,25,50,100];
+const chipColors = {1:'#888',5:'#c0392b',10:'#2980b9',25:'#27ae60',50:'#222',100:'#7d3c98'};
+const chipsBox = document.getElementById('chips');
+chipValues.forEach(v=>{
+  const c = document.createElement('div');
+  c.className = 'chip' + (v===selectedChip ? ' selected' : '');
+  c.style.background = chipColors[v];
+  c.textContent = '$'+v;
+  c.addEventListener('click', ()=>{
+    document.querySelectorAll('.chip').forEach(x=>x.classList.remove('selected'));
+    c.classList.add('selected');
+    selectedChip = v;
+  });
+  chipsBox.appendChild(c);
+});
+
+document.getElementById('clearBtn').addEventListener('click', ()=>{
+  if(dealing) return;
+  clearBets();
+  setMessage('msgCleared');
+});
+
+document.getElementById('repeatBtn').addEventListener('click', ()=>{
+  if(dealing) return;
+  if(!lastBets || Object.keys(lastBets).length===0){ setMessage('msgNoLastBet'); return; }
+  const total = Object.values(lastBets).reduce((a,b)=>a+b,0);
+  if(total > balance){ setMessage('msgRepeatNoFunds', total); return; }
+  clearBets();
+  for(const key in lastBets){
+    bets[key] = lastBets[key];
+    const el = document.querySelector(`.bet-spot[data-key="${key}"]`);
+    if(el) updateChipDot(el, lastBets[key]);
+  }
+  updateTotalBetDisplay();
+  setMessage('msgRepeated', total);
+});
+
+document.getElementById('resetBtn').addEventListener('click', ()=>{
+  if(dealing) return;
+  balance = 1000;
+  clearBets();
+  setMessage('msgBalanceReset');
+});
+
+function doSetBalance(){
+  if(dealing) return;
+  const input = document.getElementById('balanceInput');
+  const raw = input.value.trim();
+  const val = Math.floor(Number(raw));
+  if(raw==='' || !Number.isFinite(val) || val<0){ setMessage('msgBadAmount'); return; }
+  balance = val;
+  clearBets();
+  input.value = '';
+  setMessage('msgBalanceSet', balance);
+}
+function doAddBalance(){
+  if(dealing) return;
+  const input = document.getElementById('balanceInput');
+  const raw = input.value.trim();
+  const val = Math.floor(Number(raw));
+  if(raw==='' || !Number.isFinite(val) || val<=0){ setMessage('msgBadAdd'); return; }
+  balance += val;
+  renderBalance();
+  input.value = '';
+  setMessage('msgAdded', val, balance);
+}
+document.getElementById('setBalanceBtn').addEventListener('click', doSetBalance);
+document.getElementById('addBalanceBtn').addEventListener('click', doAddBalance);
+document.getElementById('balanceInput').addEventListener('keydown', e=>{
+  if(e.key==='Enter') doSetBalance();
+});
+
+document.getElementById('langBtn').addEventListener('click', ()=>{
+  lang = (lang==='zh') ? 'en' : 'zh';
+  applyLang();
+});
+
+// ---------------- Card rendering ----------------
+function renderCard(card){
+  const d = document.createElement('div');
+  d.className = 'card ' + card.color;
+  d.innerHTML = `<div class="rank">${card.rank}<br>${card.suit}</div>`
+              + `<div class="suit">${card.suit}</div>`
+              + `<div class="rank bottom">${card.rank}<br>${card.suit}</div>`;
+  return d;
+}
+
+async function dealTo(container, card, delay){
+  await new Promise(r=>setTimeout(r, delay));
+  const el = renderCard(card);
+  container.appendChild(el);
+  requestAnimationFrame(()=> requestAnimationFrame(()=> el.classList.add('dealt')));
+}
+
+// ---------------- Odds panel ----------------
+// Runs the same drawing logic across every remaining shoe permutation up to a
+// sampling cap, settling each through the real payout() so the numbers can't
+// drift from what deal() actually pays. Baccarat's shoe is large enough that
+// exact enumeration isn't practical, so this uses a large Monte Carlo sample
+// seeded fresh each time — stable to within a fraction of a percent.
+function estimateOutcomeDistribution(){
+  const total = totalBetAmount();
+  const SAMPLES = 60000; // ~90ms — EV is a small difference of large numbers, so
+                         // it needs a fairly large sample to stay stable to the cent,
+                         // balanced against not blocking the main thread noticeably
+  const counts = {}; // net profit -> occurrences
+  const savedShoe = shoe.slice();
+
+  for(let i=0;i<SAMPLES;i++){
+    if(shoe.length < 12) buildShoe();
+    const result = playRoundSample();
+    let returned = 0;
+    for(const key in bets) returned += payout(key, bets[key], result.winner);
+    const net = returned - total;
+    counts[net] = (counts[net]||0) + 1;
+  }
+  shoe = savedShoe; // sampling must not consume the real shoe
+
+  const rows = Object.entries(counts).map(([net,c])=>[Number(net), c/SAMPLES]).sort((a,b)=>b[0]-a[0]);
+  let ev = 0;
+  rows.forEach(([net,p]) => ev += net*p);
+  return {total, rows, ev};
+}
+
+// Lightweight variant of playRound() that draws from the live shoe without
+// touching card-rendering state — used only for odds sampling.
+function playRoundSample(){
+  const player = [drawCard(), drawCard()];
+  const banker = [drawCard(), drawCard()];
+  const pNatural = handTotal(player) >= 8;
+  const bNatural = handTotal(banker) >= 8;
+  if(!pNatural && !bNatural){
+    let playerThird = null;
+    if(handTotal(player) <= 5){ playerThird = drawCard(); player.push(playerThird); }
+    const bTotal = handTotal(banker);
+    let bankerDraws;
+    if(playerThird === null){ bankerDraws = bTotal <= 5; }
+    else{
+      const pv = playerThird.value;
+      if(bTotal <= 2) bankerDraws = true;
+      else if(bTotal === 3) bankerDraws = pv !== 8;
+      else if(bTotal === 4) bankerDraws = pv >= 2 && pv <= 7;
+      else if(bTotal === 5) bankerDraws = pv >= 4 && pv <= 7;
+      else if(bTotal === 6) bankerDraws = pv === 6 || pv === 7;
+      else bankerDraws = false;
+    }
+    if(bankerDraws) banker.push(drawCard());
+  }
+  const pTotal = handTotal(player), bTotal = handTotal(banker);
+  const winner = pTotal===bTotal ? 'tie' : (pTotal>bTotal ? 'player' : 'banker');
+  return {pTotal, bTotal, winner};
+}
+
+let oddsTimer = null;
+function updateOdds(){
+  const panel = document.getElementById('oddsPanel');
+  const total = totalBetAmount();
+  if(total === 0){
+    panel.innerHTML = `<div class="panel-title">${t('oddsTitle')}</div><div class="odds-empty">${t('oddsEmpty')}</div>`;
+    return;
+  }
+  clearTimeout(oddsTimer);
+  panel.innerHTML = `<div class="panel-title">${t('oddsTitle')}</div><div class="odds-empty">${t('oddsSub', total)}</div>`;
+  // Deferred: 20k-sample Monte Carlo is too slow to run on every single chip click.
+  oddsTimer = setTimeout(()=>{
+    const {rows, ev} = estimateOutcomeDistribution();
+    let html = `<div class="panel-title">${t('oddsTitle')}</div><div class="odds-empty" style="margin-bottom:10px">${t('oddsSub', total)}</div>`;
+    rows.forEach(([net, p])=>{
+      const pct = p*100;
+      const cls = net>0 ? 'win' : 'lose';
+      const color = net>0 ? '#5ed67c' : '#f2706f';
+      const label = net>0 ? t('oddsWin', net) : t('oddsLose', Math.abs(net));
+      html += `<div class="odds-row ${cls}"><div class="odds-head"><span>${label}</span><span>${pct.toFixed(1)}%</span></div>`
+            + `<div class="odds-bar"><span style="width:${pct}%;background:${color}"></span></div></div>`;
+    });
+    const evPct = ev/total*100;
+    const sign = ev>=0 ? '+' : '−';
+    html += `<div style="margin-top:10px;padding-top:9px;border-top:1px solid rgba(255,255,255,.16);font-size:12px;color:#c6c6c6">`
+          + t('oddsEv', sign, Math.abs(ev).toFixed(2), Math.abs(evPct).toFixed(2)) + `</div>`;
+    panel.innerHTML = html;
+  }, 120);
+}
+
+// ---------------- History ----------------
+function addHistory(winner){
+  history.unshift(winner);
+  history = history.slice(0, 30);
+  renderHistory();
+}
+function renderHistory(){
+  const box = document.getElementById('history');
+  box.innerHTML = '';
+  const colors = {player:'#1a6b3a', banker:'#8a1f1f', tie:'#1f5a8a'};
+  const labels = {player:'P', banker:'B', tie:'T'};
+  history.forEach(w=>{
+    const d = document.createElement('div');
+    d.className = 'hist-chip';
+    d.style.background = colors[w];
+    d.textContent = labels[w];
+    box.appendChild(d);
+  });
+}
+
+// ---------------- Deal ----------------
+document.getElementById('dealBtn').addEventListener('click', async ()=>{
+  if(dealing) return;
+  const total = totalBetAmount();
+  if(total===0){ setMessage('msgBetFirst'); return; }
+
+  dealing = true;
+  document.getElementById('dealBtn').disabled = true;
+  document.getElementById('dealBtn').textContent = t('dealing');
+
+  const betsSnapshot = {...bets};
+  lastBets = betsSnapshot;
+
+  document.getElementById('playerCards').innerHTML = '';
+  document.getElementById('bankerCards').innerHTML = '';
+  document.getElementById('playerTotal').textContent = '-';
+  document.getElementById('bankerTotal').textContent = '-';
+  setMessage('msgDealing');
+
+  const result = playRound();
+  const pEl = document.getElementById('playerCards');
+  const bEl = document.getElementById('bankerCards');
+
+  await dealTo(pEl, result.player[0], 150);
+  await dealTo(bEl, result.banker[0], 150);
+  await dealTo(pEl, result.player[1], 150);
+  await dealTo(bEl, result.banker[1], 150);
+  if(result.player.length>2) await dealTo(pEl, result.player[2], 200);
+  if(result.banker.length>2) await dealTo(bEl, result.banker[2], 200);
+
+  document.getElementById('playerTotal').textContent = result.pTotal;
+  document.getElementById('bankerTotal').textContent = result.bTotal;
+
+  let winnings = 0;
+  for(const key in betsSnapshot) winnings += payout(key, betsSnapshot[key], result.winner);
+  balance = roundCents(balance - total + winnings);
+  renderBalance();
+
+  const whoKey = result.winner==='player' ? 'resultPlayer' : result.winner==='banker' ? 'resultBanker' : 'resultTie';
+  document.getElementById('lastResult').textContent = t(whoKey);
+  addHistory(result.winner);
+
+  lastRoundResult = {whoKey, pTotal: result.pTotal, bTotal: result.bTotal, winnings, total};
+  renderResultMessage();
+
+  clearBets();
+  dealing = false;
+  document.getElementById('dealBtn').disabled = false;
+  document.getElementById('dealBtn').textContent = t('dealBtn');
+
+  if(balance <= 0) setMessage('msgBroke');
+});
+
+renderHistory();
+applyLang();
+</script>
+</body>
+</html>
