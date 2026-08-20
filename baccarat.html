@@ -115,21 +115,23 @@
     padding:2px 10px; font-size:15px; color:var(--gold);
   }
   .cards{ display:flex; gap:8px; flex-wrap:wrap; min-height:96px; }
+  /* Minimal face: just rank + suit, centered — no corner indices, no
+     separate big pip. Shared look across every card game in this lobby. */
   .card{
-    width:58px; height:82px; border-radius:6px;
+    width:54px; height:76px; border-radius:6px;
     background:linear-gradient(160deg,#fdfbf3,#efe9d4);
     box-shadow:0 3px 8px rgba(0,0,0,.5);
-    display:flex; flex-direction:column; justify-content:space-between;
-    padding:5px 6px; font-family:Georgia,'Times New Roman',serif;
-    font-weight:bold; opacity:0; transform:translateY(-16px) scale(.85);
+    display:flex; align-items:center; justify-content:center;
+    font-family:Georgia,'Times New Roman',serif;
+    font-size:19px; font-weight:bold; line-height:1.15;
+    opacity:0; transform:translateY(-16px) scale(.85);
     transition:opacity .35s ease, transform .35s ease;
   }
   .card.dealt{ opacity:1; transform:translateY(0) scale(1); }
   .card.red{ color:#c81f33; }
   .card.black{ color:#1a1a1a; }
-  .card .rank{ font-size:18px; line-height:1; }
-  .card .suit{ font-size:20px; align-self:center; }
-  .card .rank.bottom{ align-self:flex-end; transform:rotate(180deg); }
+  .card .rank{ }
+  .card .suit{ font-size:22px; margin-left:2px; }
 
   .bet-row{
     display:grid; grid-template-columns:1fr 1fr 1fr; gap:12px;
@@ -635,9 +637,7 @@ document.getElementById('langBtn').addEventListener('click', ()=>{
 function renderCard(card){
   const d = document.createElement('div');
   d.className = 'card ' + card.color;
-  d.innerHTML = `<div class="rank">${card.rank}<br>${card.suit}</div>`
-              + `<div class="suit">${card.suit}</div>`
-              + `<div class="rank bottom">${card.rank}<br>${card.suit}</div>`;
+  d.innerHTML = `<span class="rank">${card.rank}</span><span class="suit">${card.suit}</span>`;
   return d;
 }
 

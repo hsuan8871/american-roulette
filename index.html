@@ -4,11 +4,11 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Casino Lobby</title>
-<meta name="description" content="Pick a table: American Roulette or Baccarat. Both are single-file, no-backend browser games with full betting tables and house rules shown alongside.">
+<meta name="description" content="Pick a table: American Roulette, Baccarat, or Blackjack. All single-file, no-backend browser games with full betting tables and house rules shown alongside.">
 <meta name="theme-color" content="#0b3d1e">
 <meta property="og:type" content="website">
 <meta property="og:title" content="Casino Lobby">
-<meta property="og:description" content="American Roulette and Baccarat — pick a table.">
+<meta property="og:description" content="American Roulette, Baccarat, and Blackjack — pick a table.">
 <meta property="og:url" content="https://hsuan8871.github.io/american-roulette/">
 <meta property="og:image" content="https://hsuan8871.github.io/american-roulette/preview.png">
 <meta property="og:image:width" content="1200">
@@ -186,10 +186,31 @@
     </div>
   </div>
 
+  <div class="game-card">
+    <div class="game-visual">🃏</div>
+    <div class="game-title">Blackjack</div>
+    <div class="game-sub" data-i18n="blackjackSub">21 點・要牌/停牌/加倍・莊家停於 17</div>
+    <a class="play-btn" href="blackjack.html" data-i18n="playNow">▶ 開始遊戲</a>
+    <div class="rules">
+      <h3 data-i18n="rulesTitle">遊戲規則</h3>
+      <div data-i18n="blackjackRules1">目標:手牌點數盡量接近 21 點但不超過。A 算 1 或 11(自動取較有利者),10/J/Q/K 都算 10。</div>
+      <ul>
+        <li data-i18n="blackjackRule2">開局各發 2 張牌,莊家一張明牌一張暗牌;前兩張牌就是 21 點稱為「Blackjack」</li>
+        <li data-i18n="blackjackRule3">莊家「停於 17」:點數達到 17(含軟 17)就必須停牌</li>
+        <li data-i18n="blackjackRule4">「加倍」只能在前兩張牌時使用:下注金額翻倍,只再拿一張牌後強制停牌</li>
+      </ul>
+      <table>
+        <tr><td data-i18n="blackjackBet1">Blackjack(天生 21 點)</td><td>3:2</td></tr>
+        <tr><td data-i18n="blackjackBet2">一般獲勝</td><td>1:1</td></tr>
+        <tr><td data-i18n="blackjackBet3">平手(Push)</td><td data-i18n="blackjackPush">退回本金</td></tr>
+      </table>
+    </div>
+  </div>
+
 </div>
 
 <footer data-i18n="lobbyFooter">
-  兩款遊戲都純前端運作,不會把你的餘額或下注資料傳到任何伺服器——所有數值都只存在你目前的瀏覽器分頁裡。
+  三款遊戲都純前端運作,不會把你的餘額或下注資料傳到任何伺服器——所有數值都只存在你目前的瀏覽器分頁裡。
 </footer>
 
 <script>
@@ -212,7 +233,13 @@ const I18N = {
     baccaratRule3:'未出現天牌時,依標準補牌規則自動決定是否補第三張牌',
     baccaratRule4:'莊家獲勝需扣 5% 佣金(抽水)',
     baccaratBet1:'閒家獲勝', baccaratBet2:'莊家獲勝(扣 5% 佣金)', baccaratBet3:'和局',
-    lobbyFooter:'兩款遊戲都純前端運作,不會把你的餘額或下注資料傳到任何伺服器——所有數值都只存在你目前的瀏覽器分頁裡。',
+    blackjackSub:'21 點・要牌/停牌/加倍・莊家停於 17',
+    blackjackRules1:'目標:手牌點數盡量接近 21 點但不超過。A 算 1 或 11(自動取較有利者),10/J/Q/K 都算 10。',
+    blackjackRule2:'開局各發 2 張牌,莊家一張明牌一張暗牌;前兩張牌就是 21 點稱為「Blackjack」',
+    blackjackRule3:'莊家「停於 17」:點數達到 17(含軟 17)就必須停牌',
+    blackjackRule4:'「加倍」只能在前兩張牌時使用:下注金額翻倍,只再拿一張牌後強制停牌',
+    blackjackBet1:'Blackjack(天生 21 點)', blackjackBet2:'一般獲勝', blackjackBet3:'平手(Push)', blackjackPush:'退回本金',
+    lobbyFooter:'三款遊戲都純前端運作,不會把你的餘額或下注資料傳到任何伺服器——所有數值都只存在你目前的瀏覽器分頁裡。',
     langBtn:'English'
   },
   en: {
@@ -233,7 +260,13 @@ const I18N = {
     baccaratRule3:'Without a natural, a fixed table of draw rules decides automatically whether a third card is dealt',
     baccaratRule4:'A winning Banker bet pays a 5% commission (rake)',
     baccaratBet1:'Player wins', baccaratBet2:'Banker wins (5% commission)', baccaratBet3:'Tie',
-    lobbyFooter:'Both games run entirely client-side — your balance and bets are never sent to any server; everything lives only in this browser tab.',
+    blackjackSub:'Blackjack ・ Hit / Stand / Double ・ dealer stands on 17',
+    blackjackRules1:'Get as close to 21 as possible without going over. Aces count as 1 or 11 (whichever helps more); 10/J/Q/K all count as 10.',
+    blackjackRule2:'Both get 2 cards to start (dealer\'s second is face down); 21 on the first two cards is a "Blackjack"',
+    blackjackRule3:'The dealer stands on all 17s (including soft 17)',
+    blackjackRule4:'"Double Down" only on your first two cards: doubles your bet, deals exactly one more card, then stands automatically',
+    blackjackBet1:'Blackjack (natural 21)', blackjackBet2:'Regular win', blackjackBet3:'Push (tie)', blackjackPush:'Bet returned',
+    lobbyFooter:'All three games run entirely client-side — your balance and bets are never sent to any server; everything lives only in this browser tab.',
     langBtn:'中文'
   }
 };
