@@ -1518,8 +1518,16 @@ function loadState(){
 }
 
 // ---------------- Spin logic ----------------
-let wheelRotation = 0;
-let ballRotation = 0;
+// Slice 0 (the number '0') is drawn centred at the pointer in the wheel's own
+// local coordinate frame, so a rotation of exactly 0 always rests with '0'
+// sitting under the pointer. That's a purely cosmetic artifact of the resting
+// transform — not a result — but it reads as "the wheel keeps landing on 0"
+// to anyone glancing at it before ever spinning. Randomising the rest angle
+// on load removes that false impression without touching the RNG itself.
+function mod(a,m){ return ((a%m)+m)%m; }
+
+let wheelRotation = Math.random() * 360;
+let ballRotation = wheelRotation;
 const SPIN_MS = 4200;
 
 // Distance from the wheel centre to the ball's resting spot, in wheel units:
@@ -1583,8 +1591,6 @@ function spin(){
   const winIndex = Math.floor(Math.random()*N);
   const winNumber = WHEEL_ORDER[winIndex];
   const anglePer = 360/N;
-
-  function mod(a,m){ return ((a%m)+m)%m; }
 
   // The wheel rotates by subtracting degrees over time, so its cumulative rotation
   // drifts arbitrarily far from a multiple of 360. To make winIndex land exactly under
@@ -1738,10 +1744,24 @@ buildWheel();
 buildGloss();
 
 loadState();                 // restore balance, language, mute, history, last bet
+
+// Park the wheel showing the restored last result (if any) instead of a random
+// slice — otherwise reloading the page would visually contradict the "上局結果"
+// text it just restored right next to it.
+if(lastResultData){
+  const idx = WHEEL_ORDER.indexOf(lastResultData.num);
+  if(idx >= 0){
+    const restAngle = mod(-idx*(360/N), 360);
+    wheelRotation = restAngle;
+    ballRotation = restAngle;
+  }
+}
+wheelEl.style.transform = `rotate(${wheelRotation}deg)`;
+
 renderMuteBtn();
 renderHistory();
 renderBalance();
-setBallTransform(0, lastResultData ? BALL_TRACK_D - BALL_POCKET_D : 0);
+setBallTransform(ballRotation, lastResultData ? BALL_TRACK_D - BALL_POCKET_D : 0);
 applyLang();   // also renders the welcome message and the odds panel
 
 document.getElementById('spinBtn').addEventListener('click', spin);
