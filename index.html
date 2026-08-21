@@ -124,16 +124,6 @@
   .rules ul{ margin:6px 0 0; padding-left:18px; }
   .rules li{ margin-bottom:4px; }
   footer{ margin-top:44px; font-size:11.5px; color:#7f9384; text-align:center; max-width:600px; }
-  .kofi-btn{
-    display:inline-flex; align-items:center; gap:8px;
-    margin-top:18px; padding:10px 20px;
-    background:#29abe0; color:#fff; font-size:14px; font-weight:bold;
-    border-radius:8px; text-decoration:none;
-    box-shadow:0 3px 10px rgba(0,0,0,.35);
-    transition:transform .15s ease, box-shadow .15s ease;
-  }
-  .kofi-btn:hover{ transform:translateY(-2px); box-shadow:0 5px 14px rgba(0,0,0,.45); }
-  .kofi-btn .kofi-emoji{ font-size:17px; }
   @media (max-width:480px){
     h1{ font-size:26px; letter-spacing:3px; }
     .game-visual{ font-size:48px; height:120px; }
@@ -223,9 +213,15 @@
   三款遊戲都純前端運作,不會把你的餘額或下注資料傳到任何伺服器——所有數值都只存在你目前的瀏覽器分頁裡。
 </footer>
 
-<a class="kofi-btn" href="https://ko-fi.com/hsuan8871" target="_blank" rel="noopener noreferrer">
-  <span class="kofi-emoji">☕</span><span data-i18n="kofiBtn">請我喝杯咖啡</span>
-</a>
+<script src="https://storage.ko-fi.com/cdn/scripts/overlay-widget.js"></script>
+<script>
+  kofiWidgetOverlay.draw('hsuan8871', {
+    'type': 'floating-chat',
+    'floating-chat.donateButton.text': 'Support me',
+    'floating-chat.donateButton.background-color': '#29abe0',
+    'floating-chat.donateButton.text-color': '#fff'
+  });
+</script>
 
 <script>
 const I18N = {
@@ -254,7 +250,6 @@ const I18N = {
     blackjackRule4:'「加倍」只能在前兩張牌時使用:下注金額翻倍,只再拿一張牌後強制停牌',
     blackjackBet1:'Blackjack(天生 21 點)', blackjackBet2:'一般獲勝', blackjackBet3:'平手(Push)', blackjackPush:'退回本金',
     lobbyFooter:'三款遊戲都純前端運作,不會把你的餘額或下注資料傳到任何伺服器——所有數值都只存在你目前的瀏覽器分頁裡。',
-    kofiBtn:'請我喝杯咖啡',
     langBtn:'English'
   },
   en: {
@@ -282,7 +277,6 @@ const I18N = {
     blackjackRule4:'"Double Down" only on your first two cards: doubles your bet, deals exactly one more card, then stands automatically',
     blackjackBet1:'Blackjack (natural 21)', blackjackBet2:'Regular win', blackjackBet3:'Push (tie)', blackjackPush:'Bet returned',
     lobbyFooter:'All three games run entirely client-side — your balance and bets are never sent to any server; everything lives only in this browser tab.',
-    kofiBtn:'Buy me a coffee',
     langBtn:'中文'
   }
 };
