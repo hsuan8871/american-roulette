@@ -137,6 +137,7 @@
     border-radius:12px;
     padding:14px;
     box-shadow:0 10px 30px rgba(0,0,0,.5);
+    transform-origin:top left;
   }
   .grid{
     display:grid;
@@ -424,15 +425,15 @@
     .win-badge, .ball.landed, .pocket-flash{ animation:none !important; }
   }
   /* ---------- Responsive ---------- */
-  /* The table is a fixed-width grid, so below its natural width it scrolls
-     sideways inside its own container rather than forcing the page to. */
-  /* min-width:0 defeats the default `min-width:auto` on flex items, which would
-     otherwise let the fixed-width table stretch the layout past the viewport
-     and get clipped instead of scrolling. */
+  /* The table's natural size is fixed-width. Rather than letting it scroll
+     sideways (which clips the rounded table-wrap border on one side and makes
+     the frame look like it doesn't fully enclose the table), fitTable() in
+     the script below uniformly scales the whole .table-wrap down to fit
+     whatever width is available, keeping the border and every cell in
+     exactly the same proportions at any size. */
   .table-scroll{
     max-width:100%; min-width:0;
-    overflow-x:auto;
-    padding-bottom:6px;
+    overflow:hidden;
   }
   .odds-panel{ min-width:0; }
   @media (max-width: 1180px){
@@ -448,14 +449,6 @@
     /* Uniform scale keeps the ball, pointer and pockets in exact alignment. */
     .wheel-stage{ width:300px; height:262px; }
     .wheel-box{ transform:rotateX(34deg) scale(.84); }
-    .grid{
-      grid-template-columns: 38px repeat(12, 38px) 44px;
-      grid-template-rows: repeat(3, 38px) auto auto;
-    }
-    .cell{ font-size:13px; }
-    .zero-cell{ font-size:15px; }
-    .outside{ font-size:11px; }
-    .table-wrap{ padding:10px; }
     .chip{ width:44px; height:44px; font-size:13px; }
     .chips{ gap:7px; }
     button.action{ padding:9px 15px; font-size:14px; }
@@ -497,8 +490,8 @@
     </div>
   </div>
 
-  <div class="table-scroll">
-  <div class="table-wrap">
+  <div class="table-scroll" id="tableShell">
+  <div class="table-wrap" id="tableWrap">
     <div class="grid" id="grid">
       <div id="overlay"></div>
     </div>
@@ -898,8 +891,36 @@ function buildOverlay(){
     addHotspot(rdz.left+rdz.width/2, rdz.top+rdz.height, 'split_0_00', 'Split 0-00', ['0','00']);
   }
 }
-buildOverlay();
-window.addEventListener('resize', buildOverlay);
+
+// Uniformly scales the whole table down to fit whatever width is available,
+// instead of letting it overflow into a horizontal scroller. A scrollable
+// table only ever shows part of the rounded table-wrap border on screen —
+// scaling keeps the border, and every cell inside it, fully visible and in
+// the same proportions at any viewport size. rectOf()/gridScale already
+// account for this via the grid's actual on-screen size, so hotspots stay
+// aligned automatically; buildOverlay() just needs to re-run after the scale
+// changes to pick up the new gridScale.
+function fitTable(){
+  const shell = document.getElementById('tableShell');
+  const wrap = document.getElementById('tableWrap');
+  shell.style.width = '';
+  shell.style.height = '';
+  wrap.style.transform = 'none';
+  // .table-wrap is a plain block, so its own offsetWidth just matches
+  // whatever width its container gives it — scrollWidth is what actually
+  // reflects the grid's real (possibly overflowing) content size.
+  const naturalWidth = wrap.scrollWidth;
+  const naturalHeight = wrap.scrollHeight;
+  const available = shell.clientWidth;
+  const scale = (available > 0 && naturalWidth > 0) ? Math.min(1, available / naturalWidth) : 1;
+  if(scale < 0.999){
+    wrap.style.transform = `scale(${scale})`;
+    shell.style.width = Math.ceil(naturalWidth * scale) + 'px';
+    shell.style.height = Math.ceil(naturalHeight * scale) + 'px';
+  }
+  buildOverlay();
+}
+window.addEventListener('resize', fitTable);
 
 // dozens (1st/2nd/3rd 12) — each spans the same 4 number-columns as its
 // 12 numbers (grid-row 4), so it can never drift out of alignment with them.
@@ -1927,6 +1948,7 @@ renderMuteBtn();
 renderHistory();
 renderBalance();
 applyLang();   // also renders the welcome message, mode UI, and the odds panel
+fitTable();    // scales the table to fit + builds the bet-spot overlay
 
 document.getElementById('spinBtn').addEventListener('click', spin);
 </script>
