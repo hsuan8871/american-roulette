@@ -1,0 +1,978 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Heads-Up Hold'em</title>
+<meta name="description" content="A single-file heads-up No-Limit Texas Hold'em game against an AI dealer: real hand evaluation, blinds, betting rounds, and a buy-in/cash-out cash-game flow.">
+<meta name="theme-color" content="#0b3d1e">
+<meta property="og:type" content="website">
+<meta property="og:title" content="Heads-Up Hold'em">
+<meta property="og:description" content="Heads-up No-Limit Texas Hold'em against an AI dealer — real hand rankings, blinds, and betting rounds.">
+<meta property="og:url" content="https://hsuan8871.github.io/casino-game/holdem.html">
+<meta property="og:image" content="https://hsuan8871.github.io/casino-game/preview.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Ccircle cx='16' cy='16' r='15' fill='%230d6b31'/%3E%3Ctext x='16' y='22' font-size='16' text-anchor='middle' fill='%23fff'%3E%E2%99%A0%3C/text%3E%3C/svg%3E">
+<style>
+  :root{
+    --green:#0b3d1e; --felt:#0f5c2e; --gold:#e8c165;
+    --red:#c81f33; --black:#1a1a1a;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0; min-height:100vh;
+    background:radial-gradient(ellipse at center, #145c33 0%, #0b3d1e 60%, #062713 100%);
+    font-family:'Trebuchet MS', Arial, sans-serif; color:#fff;
+    display:flex; flex-direction:column; align-items:center; padding:20px;
+  }
+  h1{ letter-spacing:3px; text-shadow:0 2px 6px rgba(0,0,0,.6); margin:6px 0 4px; }
+  .lobby-link{ align-self:flex-start; margin-left:4px; color:#c8d6cb; font-size:13px; text-decoration:none; opacity:.85; }
+  .lobby-link:hover{ color:#fff; opacity:1; text-decoration:underline; }
+  .subtitle{ color:#b9c9bd; font-size:13px; margin-bottom:16px; }
+
+  .stats{
+    display:flex; gap:16px; align-items:center; flex-wrap:wrap; justify-content:center;
+    font-size:14px; background:rgba(0,0,0,.35); padding:10px 18px; border-radius:10px;
+    margin-bottom:14px; border:1px solid rgba(255,255,255,.08);
+  }
+  .stats .grp{ display:flex; align-items:center; gap:6px; }
+  .stats b{ color:var(--gold); }
+  .balance-editor{ display:flex; gap:6px; align-items:center; }
+  .balance-editor input{
+    width:90px; padding:6px 8px; border-radius:6px; border:1px solid #666;
+    background:#111; color:#fff; font-size:13px;
+  }
+  button.action.small{ padding:6px 12px; font-size:12px; }
+
+  #message{
+    min-height:40px; max-width:680px; text-align:center; font-size:15px; font-weight:bold;
+    text-shadow:0 2px 4px rgba(0,0,0,.6); margin-bottom:10px; line-height:1.5;
+  }
+
+  .table{ display:flex; gap:24px; flex-wrap:wrap; justify-content:center; align-items:flex-start; width:100%; max-width:960px; }
+
+  .felt-wrap{
+    background:var(--felt); border:6px solid #3d2f14; border-radius:16px;
+    padding:22px; width:520px; flex-shrink:0; box-shadow:0 12px 30px rgba(0,0,0,.5);
+  }
+
+  .buyin-panel{ text-align:center; padding:10px 4px; }
+  .buyin-title{ font-size:16px; font-weight:bold; color:var(--gold); margin-bottom:6px; }
+  .buyin-sub{ font-size:12.5px; color:#c8d6cb; line-height:1.6; margin-bottom:14px; }
+  .buyin-row{ display:flex; gap:10px; justify-content:center; align-items:center; }
+  .buyin-row input{
+    width:110px; padding:9px 10px; border-radius:8px; border:1px solid #666;
+    background:#111; color:#fff; font-size:15px; text-align:center;
+  }
+  .buyin-hint{ font-size:12px; color:#f2706f; margin-top:8px; min-height:16px; }
+
+  .seat{ display:flex; align-items:center; justify-content:space-between; margin-bottom:6px; }
+  .seat .label{ font-size:13px; font-weight:bold; color:var(--gold); }
+  .seat .stack{ font-size:13px; color:#d8e6da; }
+  .seat.turn .label{ text-shadow:0 0 8px var(--gold); }
+
+  .cards-row{ display:flex; gap:6px; justify-content:center; min-height:78px; align-items:center; }
+  .card{
+    width:50px; height:70px; border-radius:6px;
+    background:linear-gradient(160deg,#fdfbf3,#efe9d4);
+    box-shadow:0 3px 8px rgba(0,0,0,.5);
+    display:flex; align-items:center; justify-content:center;
+    font-family:Georgia,'Times New Roman',serif; font-size:17px; font-weight:bold; line-height:1.15;
+    opacity:0; transform:translateY(-14px) scale(.85);
+    transition:opacity .3s ease, transform .3s ease;
+  }
+  .card.dealt{ opacity:1; transform:translateY(0) scale(1); }
+  .card.red{ color:var(--red); }
+  .card.black{ color:var(--black); }
+  .card .suit{ font-size:19px; margin-left:2px; }
+  .card.back{
+    background:repeating-linear-gradient(45deg, #1c4d8f, #1c4d8f 5px, #163f77 5px, #163f77 10px);
+  }
+  .card.win-glow{ box-shadow:0 0 0 3px var(--gold), 0 3px 10px rgba(0,0,0,.5); }
+
+  .community-wrap{ margin:16px 0; text-align:center; }
+  .pot-line{ font-size:14px; color:var(--gold); font-weight:bold; text-align:center; margin-bottom:10px; }
+  .street-label{ font-size:11.5px; color:#a9c2ae; text-align:center; margin-bottom:4px; letter-spacing:1px; }
+
+  .controls-row{ display:flex; gap:10px; justify-content:center; flex-wrap:wrap; margin-top:16px; }
+  button.action{
+    padding:10px 18px; border:none; border-radius:9px; font-size:14px; font-weight:bold;
+    cursor:pointer; background:var(--gold); color:#3a2d05; box-shadow:0 4px 10px rgba(0,0,0,.4);
+    transition:filter .15s, transform .1s;
+  }
+  button.action:hover:not(:disabled){ filter:brightness(1.1); transform:translateY(-1px); }
+  button.action:disabled{ opacity:.4; cursor:not-allowed; }
+  button.action.secondary{ background:#444; color:#fff; }
+  button.action.danger{ background:#7a2020; color:#fff; }
+  .raise-row{ display:flex; gap:8px; align-items:center; justify-content:center; margin-top:10px; flex-wrap:wrap; }
+  .raise-row input{
+    width:100px; padding:8px 10px; border-radius:8px; border:1px solid #666;
+    background:#111; color:#fff; font-size:14px; text-align:center;
+  }
+  .preset-chip{
+    padding:6px 10px; border-radius:7px; border:1px solid #6b5622; background:#2b2308;
+    color:var(--gold); font-size:12px; cursor:pointer;
+  }
+  .preset-chip:hover{ background:#3b2f0c; }
+
+  .log-panel{
+    width:260px; flex-shrink:0; align-self:stretch;
+    background:rgba(0,0,0,.42); border:2px solid #3d2f14; border-radius:12px;
+    padding:14px 16px; box-shadow:0 10px 30px rgba(0,0,0,.45); max-height:560px; overflow-y:auto;
+  }
+  .log-title{ font-size:14px; font-weight:bold; color:var(--gold); margin-bottom:8px; letter-spacing:.5px; }
+  .log-line{ font-size:12px; color:#d8dcd9; line-height:1.6; padding:3px 0; border-bottom:1px dashed rgba(255,255,255,.06); }
+  .log-line.you{ color:#9fd6ff; }
+  .log-line.ai{ color:#ffb3b3; }
+  .log-line.sys{ color:var(--gold); font-weight:bold; }
+
+  .rules{
+    margin-top:26px; max-width:680px; background:rgba(0,0,0,.3); border:1px solid rgba(255,255,255,.1);
+    border-radius:10px; padding:16px 18px; font-size:12.5px; line-height:1.8; color:#dce4de;
+  }
+  .rules h3{ margin:0 0 8px; color:var(--gold); font-size:13.5px; }
+  .rules ul{ margin:4px 0; padding-left:18px; }
+
+  @media (max-width:760px){
+    .felt-wrap{ width:100%; max-width:420px; padding:14px; }
+    .log-panel{ width:100%; max-width:420px; }
+    .card{ width:42px; height:60px; font-size:14px; }
+    .card .suit{ font-size:16px; }
+  }
+</style>
+</head>
+<body>
+
+<a href="index.html" class="lobby-link" data-i18n="backToLobby">← 選擇遊戲</a>
+<h1>♠️ <span data-i18n="title">單挑德州撲克</span></h1>
+<div class="subtitle" data-i18n="subtitle">Heads-Up No-Limit Hold'em・你 vs AI 莊家</div>
+
+<div class="stats">
+  <div class="grp"><span data-i18n="balance">餘額</span> $<b id="balance">1000</b></div>
+  <div class="balance-editor">
+    <input type="number" id="balanceInput" data-i18n-ph="amountPh" placeholder="輸入金額" min="0" step="1">
+    <button class="action secondary small" id="setBalanceBtn" data-i18n="setBalance">設定餘額</button>
+    <button class="action secondary small" id="addBalanceBtn" data-i18n="addBalance">+ 加值</button>
+  </div>
+  <button class="action secondary small" id="langBtn">English</button>
+  <button class="action secondary small" id="muteBtn" aria-pressed="false">🔊</button>
+</div>
+
+<div id="message" role="status" aria-live="polite"></div>
+
+<div class="table">
+  <div class="felt-wrap">
+
+    <div class="buyin-panel" id="buyinPanel">
+      <div class="buyin-title" data-i18n="buyinTitle">💵 帶多少籌碼上桌？</div>
+      <div class="buyin-sub" data-i18n="buyinSub">盲注固定 $10 / $20，帶越多籌碼能撐越多手。隨時可以「離桌結算」把剩餘籌碼換回餘額。</div>
+      <div class="buyin-row">
+        <input type="number" id="buyinInput" min="200" step="20" value="500">
+        <button class="action" id="startTableBtn" data-i18n="sitDown">入座</button>
+      </div>
+      <div class="buyin-hint" id="buyinHint"></div>
+    </div>
+
+    <div id="tableArea" style="display:none;">
+      <div class="seat" id="aiSeat">
+        <div class="label" data-i18n="dealer">莊家 AI</div>
+        <div class="stack">$<b id="aiStackVal">0</b></div>
+      </div>
+      <div class="cards-row" id="aiCards"></div>
+
+      <div class="community-wrap">
+        <div class="street-label" id="streetLabel"></div>
+        <div class="cards-row" id="communityCards"></div>
+        <div class="pot-line" id="potLine"></div>
+      </div>
+
+      <div class="cards-row" id="playerCards"></div>
+      <div class="seat" id="playerSeat">
+        <div class="label" data-i18n="you">你</div>
+        <div class="stack">$<b id="playerStackVal">0</b></div>
+      </div>
+
+      <div class="controls-row" id="actionButtons">
+        <button class="action danger" id="foldBtn" data-i18n="fold">棄牌</button>
+        <button class="action secondary" id="checkCallBtn"></button>
+        <button class="action" id="raiseBtn" data-i18n="betRaise">下注/加注</button>
+        <button class="action secondary" id="allinBtn" data-i18n="allin">全下</button>
+      </div>
+      <div class="raise-row" id="raiseRow" style="display:none;">
+        <button class="preset-chip" id="presetHalf">1/2 底池</button>
+        <button class="preset-chip" id="presetPot" data-i18n="presetPot">底池</button>
+        <input type="number" id="raiseInput" min="0" step="10">
+        <button class="action" id="confirmRaiseBtn" data-i18n="confirm">確定</button>
+      </div>
+      <div class="controls-row">
+        <button class="action secondary" id="nextHandBtn" style="display:none;" data-i18n="nextHand">🔄 下一手</button>
+        <button class="action secondary" id="cashOutBtn" data-i18n="cashOut">💰 離桌結算</button>
+      </div>
+    </div>
+
+  </div>
+
+  <div class="log-panel" id="logPanel">
+    <div class="log-title" data-i18n="logTitle">📜 手牌紀錄</div>
+    <div id="logList"></div>
+  </div>
+</div>
+
+<div class="rules">
+  <h3 data-i18n="rulesTitle">遊戲規則</h3>
+  <ul>
+    <li data-i18n="rule1">單挑(Heads-Up)德州撲克：你和 AI 莊家兩人對戰，各發 2 張手牌，搭配 5 張公共牌組成最大的 5 張牌組合。</li>
+    <li data-i18n="rule2">盲注固定 $10 / $20，每手交替坐莊。莊家位翻牌前先行動、翻牌後最後行動。</li>
+    <li data-i18n="rule3">下注輪：preflop（發手牌後）→ flop（開 3 張公共牌）→ turn（開第 4 張）→ river（開第 5 張）→ 攤牌比大小。</li>
+    <li data-i18n="rule4">帶入的籌碼是從餘額扣的，隨時可以按「離桌結算」把桌上剩餘籌碼換回餘額；籌碼歸零就只能重新入座。</li>
+  </ul>
+</div>
+
+<script>
+// ---------------- i18n ----------------
+const I18N = {
+  zh: {
+    backToLobby:'← 選擇遊戲', title:'單挑德州撲克', subtitle:'Heads-Up No-Limit Hold\'em・你 vs AI 莊家',
+    balance:'餘額', amountPh:'輸入金額', setBalance:'設定餘額', addBalance:'+ 加值',
+    langBtn:'English', dealer:'莊家 AI', you:'你',
+    buyinTitle:'💵 帶多少籌碼上桌？',
+    buyinSub:'盲注固定 $10 / $20，帶越多籌碼能撐越多手。隨時可以「離桌結算」把剩餘籌碼換回餘額。',
+    sitDown:'入座', buyinHintMin:min=>`最低帶入 $${min}。`, buyinHintNoFunds:'餘額不足，請輸入不超過目前餘額的金額。',
+    fold:'棄牌', check:'過牌', call:v=>`跟注 $${v}`, betRaise:'下注/加注', allin:'全下',
+    presetPot:'底池', confirm:'確定', nextHand:'🔄 下一手', cashOut:'💰 離桌結算',
+    logTitle:'📜 手牌紀錄', rulesTitle:'遊戲規則',
+    rule1:'單挑(Heads-Up)德州撲克：你和 AI 莊家兩人對戰，各發 2 張手牌，搭配 5 張公共牌組成最大的 5 張牌組合。',
+    rule2:'盲注固定 $10 / $20，每手交替坐莊。莊家位翻牌前先行動、翻牌後最後行動。',
+    rule3:'下注輪：preflop（發手牌後）→ flop（開 3 張公共牌）→ turn（開第 4 張）→ river（開第 5 張）→ 攤牌比大小。',
+    rule4:'帶入的籌碼是從餘額扣的，隨時可以按「離桌結算」把桌上剩餘籌碼換回餘額；籌碼歸零就只能重新入座。',
+    streetPreflop:'PRE-FLOP', streetFlop:'FLOP', streetTurn:'TURN', streetRiver:'RIVER', streetShowdown:'SHOWDOWN',
+    potFmt:v=>`底池 $${v}`,
+    msgSit:'選一個帶入籌碼的金額，按「入座」開打！',
+    msgHandStart:(sb,bb)=>`新的一手開始。小盲 $${sb}、大盲 $${bb}。`,
+    msgYouButton:'這手你是莊家位（小盲），翻牌前你先行動。',
+    msgAiButton:'這手 AI 是莊家位（小盲），翻牌前 AI 先行動。',
+    msgYourTurn:'輪到你行動。',
+    msgYouFold:'你棄牌了。',
+    msgAiFold:'AI 棄牌了。',
+    msgYouCheck:'你過牌。',
+    msgAiCheck:'AI 過牌。',
+    msgYouCall:v=>`你跟注 $${v}。`,
+    msgAiCall:v=>`AI 跟注 $${v}。`,
+    msgYouBet:v=>`你下注 $${v}。`,
+    msgAiBet:v=>`AI 下注 $${v}。`,
+    msgYouRaise:v=>`你加注到 $${v}。`,
+    msgAiRaise:v=>`AI 加注到 $${v}。`,
+    msgYouAllin:v=>`你全下 $${v}！`,
+    msgAiAllin:v=>`AI 全下 $${v}！`,
+    msgWinFold:(who,v)=>`${who}獲得底池 $${v}（對手棄牌）。`,
+    msgShowdown:(who,handName,v)=>`攤牌：${who}以「${handName}」贏得 $${v}。`,
+    msgSplit:v=>`平手，底池 $${v} 平分。`,
+    msgBusted:'💸 你的籌碼歸零了，這桌結束了。',
+    msgAiBusted:'🏆 AI 的籌碼歸零了，你贏下整桌！',
+    msgCashOut:v=>`💰 離桌結算，$${v} 已換回餘額。`,
+    handHigh:'高牌', handPair:'一對', handTwoPair:'兩對', handTrips:'三條',
+    handStraight:'順子', handFlush:'同花', handFullHouse:'葫蘆', handQuads:'四條', handStraightFlush:'同花順',
+    yourHand:'你', aiHand:'AI'
+  },
+  en: {
+    backToLobby:'← Choose a Game', title:'Heads-Up Hold\'em', subtitle:'Heads-Up No-Limit Hold\'em vs an AI dealer',
+    balance:'Balance', amountPh:'Amount', setBalance:'Set Balance', addBalance:'+ Add',
+    langBtn:'中文', dealer:'Dealer AI', you:'You',
+    buyinTitle:'💵 How many chips are you buying in?',
+    buyinSub:'Blinds are fixed at $10 / $20 — the more you buy in, the more hands you can weather. "Cash Out" converts whatever\'s left back to balance any time.',
+    sitDown:'Sit Down', buyinHintMin:min=>`$${min} minimum buy-in.`, buyinHintNoFunds:'Not enough balance — enter an amount at or under your current balance.',
+    fold:'Fold', check:'Check', call:v=>`Call $${v}`, betRaise:'Bet / Raise', allin:'All-in',
+    presetPot:'Pot', confirm:'Confirm', nextHand:'🔄 Next Hand', cashOut:'💰 Cash Out',
+    logTitle:'📜 Hand Log', rulesTitle:'House Rules',
+    rule1:'Heads-up Texas Hold\'em: you and the AI dealer each get 2 hole cards, and build the best 5-card hand together with 5 community cards.',
+    rule2:'Blinds are fixed at $10 / $20, alternating the button each hand. The button acts first pre-flop and last on every street after.',
+    rule3:'Betting rounds: pre-flop (after hole cards) → flop (3 community cards) → turn (4th card) → river (5th card) → showdown.',
+    rule4:'Your buy-in is deducted from your balance. "Cash Out" converts whatever chips are left on the table back to balance any time — busting means sitting back down with a new buy-in.',
+    streetPreflop:'PRE-FLOP', streetFlop:'FLOP', streetTurn:'TURN', streetRiver:'RIVER', streetShowdown:'SHOWDOWN',
+    potFmt:v=>`Pot $${v}`,
+    msgSit:'Pick a buy-in amount and hit "Sit Down" to start!',
+    msgHandStart:(sb,bb)=>`New hand. Small blind $${sb}, big blind $${bb}.`,
+    msgYouButton:'You have the button (small blind) this hand — you act first pre-flop.',
+    msgAiButton:'The AI has the button (small blind) this hand — it acts first pre-flop.',
+    msgYourTurn:'Your turn.',
+    msgYouFold:'You folded.',
+    msgAiFold:'The AI folded.',
+    msgYouCheck:'You checked.',
+    msgAiCheck:'The AI checked.',
+    msgYouCall:v=>`You called $${v}.`,
+    msgAiCall:v=>`The AI called $${v}.`,
+    msgYouBet:v=>`You bet $${v}.`,
+    msgAiBet:v=>`The AI bet $${v}.`,
+    msgYouRaise:v=>`You raised to $${v}.`,
+    msgAiRaise:v=>`The AI raised to $${v}.`,
+    msgYouAllin:v=>`You went all-in for $${v}!`,
+    msgAiAllin:v=>`The AI went all-in for $${v}!`,
+    msgWinFold:(who,v)=>`${who} takes the $${v} pot (opponent folded).`,
+    msgShowdown:(who,handName,v)=>`Showdown: ${who} wins $${v} with ${handName}.`,
+    msgSplit:v=>`Split pot — $${v} divided evenly.`,
+    msgBusted:'💸 You\'re out of chips — this session is over.',
+    msgAiBusted:'🏆 The AI is out of chips — you win the table!',
+    msgCashOut:v=>`💰 Cashed out — $${v} converted back to balance.`,
+    handHigh:'High Card', handPair:'Pair', handTwoPair:'Two Pair', handTrips:'Three of a Kind',
+    handStraight:'Straight', handFlush:'Flush', handFullHouse:'Full House', handQuads:'Four of a Kind', handStraightFlush:'Straight Flush',
+    yourHand:'you', aiHand:'the AI'
+  }
+};
+let lang = 'zh';
+function t(key, ...args){ const v = I18N[lang][key]; return typeof v === 'function' ? v(...args) : v; }
+
+// ---------------- Sound ----------------
+let audioCtx = null, muted = false;
+function audio(){
+  if(muted) return null;
+  try{
+    if(!audioCtx){ const AC = window.AudioContext || window.webkitAudioContext; if(!AC) return null; audioCtx = new AC(); }
+    if(audioCtx.state === 'suspended') audioCtx.resume();
+    return audioCtx;
+  }catch(e){ return null; }
+}
+function tone(freq, dur, {type='sine', gain=.12, delay=0, sweepTo=null}={}){
+  const ctx = audio(); if(!ctx) return;
+  const t0 = ctx.currentTime + delay;
+  const osc = ctx.createOscillator(), g = ctx.createGain();
+  osc.type = type; osc.frequency.setValueAtTime(freq, t0);
+  if(sweepTo) osc.frequency.exponentialRampToValueAtTime(sweepTo, t0+dur);
+  g.gain.setValueAtTime(0.0001, t0);
+  g.gain.exponentialRampToValueAtTime(gain, t0+0.012);
+  g.gain.exponentialRampToValueAtTime(0.0001, t0+dur);
+  osc.connect(g).connect(ctx.destination); osc.start(t0); osc.stop(t0+dur+0.02);
+}
+function noiseBurst(dur, gain, delay=0, freq=2200){
+  const ctx = audio(); if(!ctx) return;
+  const frames = Math.floor(ctx.sampleRate * dur);
+  const buf = ctx.createBuffer(1, frames, ctx.sampleRate);
+  const data = buf.getChannelData(0);
+  for(let i=0;i<frames;i++) data[i] = (Math.random()*2-1) * (1 - i/frames);
+  const src = ctx.createBufferSource(); src.buffer = buf;
+  const g = ctx.createGain(); g.gain.value = gain;
+  const filt = ctx.createBiquadFilter(); filt.type = 'bandpass'; filt.frequency.value = freq;
+  src.connect(filt).connect(g).connect(ctx.destination);
+  src.start(ctx.currentTime + delay);
+}
+const sfx = {
+  deal(){ noiseBurst(.05, .08); },
+  chip(){ tone(760, .05, {type:'triangle', gain:.08}); },
+  check(){ tone(420, .05, {type:'square', gain:.06}); },
+  fold(){ tone(260, .18, {type:'sine', gain:.08, sweepTo:140}); },
+  win(){ [523,659,784,1047].forEach((f,i)=>tone(f,.24,{type:'triangle',gain:.13,delay:i*.09})); },
+  lose(){ tone(200,.4,{type:'sine',gain:.1,sweepTo:110}); }
+};
+
+// ---------------- Deck / hand evaluation ----------------
+const SUITS = [['♠','black'],['♥','red'],['♦','red'],['♣','black']];
+const RANKS = ['2','3','4','5','6','7','8','9','10','J','Q','K','A'];
+
+function buildDeck(){
+  const deck = [];
+  SUITS.forEach(([suit,color])=>{
+    RANKS.forEach((rank,i)=>{
+      deck.push({rank, suit, color, value:i+2});
+    });
+  });
+  return deck;
+}
+function shuffle(arr){
+  for(let i=arr.length-1;i>0;i--){
+    const j = Math.floor(Math.random()*(i+1));
+    [arr[i],arr[j]] = [arr[j],arr[i]];
+  }
+  return arr;
+}
+
+// Category: 8=straight flush 7=quads 6=full house 5=flush 4=straight
+// 3=trips 2=two pair 1=pair 0=high card. Returns [category, ...tiebreakers].
+function evaluate5(cards){
+  const values = cards.map(c=>c.value).sort((a,b)=>b-a);
+  const isFlush = cards.every(c=>c.suit===cards[0].suit);
+  const uniq = [...new Set(values)];
+  let isStraight = false, straightHigh = 0;
+  if(uniq.length===5){
+    if(uniq[0]-uniq[4]===4){ isStraight=true; straightHigh=uniq[0]; }
+    else if(uniq[0]===14 && uniq[1]===5 && uniq[2]===4 && uniq[3]===3 && uniq[4]===2){ isStraight=true; straightHigh=5; }
+  }
+  const counts = {};
+  values.forEach(v=>counts[v]=(counts[v]||0)+1);
+  const groups = Object.entries(counts).map(([v,c])=>({v:+v,c})).sort((a,b)=> b.c-a.c || b.v-a.v);
+
+  if(isStraight && isFlush) return [8, straightHigh];
+  if(groups[0].c===4) return [7, groups[0].v, groups[1].v];
+  if(groups[0].c===3 && groups[1] && groups[1].c===2) return [6, groups[0].v, groups[1].v];
+  if(isFlush) return [5, ...values];
+  if(isStraight) return [4, straightHigh];
+  if(groups[0].c===3) return [3, groups[0].v, ...groups.slice(1).map(g=>g.v)];
+  if(groups[0].c===2 && groups[1] && groups[1].c===2) return [2, Math.max(groups[0].v,groups[1].v), Math.min(groups[0].v,groups[1].v), groups[2].v];
+  if(groups[0].c===2) return [1, groups[0].v, ...groups.slice(1).map(g=>g.v)];
+  return [0, ...values];
+}
+function compareScore(a,b){
+  const len = Math.max(a.length,b.length);
+  for(let i=0;i<len;i++){
+    const av=a[i]===undefined?0:a[i], bv=b[i]===undefined?0:b[i];
+    if(av!==bv) return av-bv;
+  }
+  return 0;
+}
+// Best 5-of-7: try every pair of cards to leave out.
+// Best 5-card hand out of any N>=5 cards (5 on the flop, 6 on the turn,
+// 7 on the river) — tries every 5-card subset rather than assuming a fixed
+// count, since AI hand-strength is evaluated on every street, not just the
+// river.
+function evaluate7(cardsN){
+  const n = cardsN.length;
+  if(n <= 5) return evaluate5(cardsN);
+  let best = null;
+  function combos(start, chosen){
+    if(chosen.length===5){
+      const score = evaluate5(chosen.map(i=>cardsN[i]));
+      if(!best || compareScore(score,best)>0) best = score;
+      return;
+    }
+    for(let i=start;i<n;i++){
+      chosen.push(i);
+      combos(i+1, chosen);
+      chosen.pop();
+    }
+  }
+  combos(0, []);
+  return best;
+}
+const HAND_NAME_KEY = ['handHigh','handPair','handTwoPair','handTrips','handStraight','handFlush','handFullHouse','handQuads','handStraightFlush'];
+
+// ---------------- State ----------------
+const SB = 10, BB = 20;
+let balance = 1000;
+let playerStack = 0, aiStack = 0;
+let deck = [], playerHole = [], aiHole = [], community = [];
+let pot = 0;
+let street = 'idle'; // idle | preflop | flop | turn | river | showdown
+let button = 'player'; // who posts the small blind this hand
+let toAct = null;
+let streetContrib = {player:0, ai:0};
+let actedThisStreet = {player:false, ai:false};
+let lastRaiseSize = BB;
+let handActive = false;
+let sessionActive = false;
+let busy = false;
+
+function rnd(min,max){ return Math.floor(Math.random()*(max-min+1))+min; }
+
+function log(cls, text){
+  const list = document.getElementById('logList');
+  const d = document.createElement('div');
+  d.className = 'log-line ' + cls;
+  d.textContent = text;
+  list.insertBefore(d, list.firstChild);
+  while(list.children.length > 80) list.removeChild(list.lastChild);
+}
+function setMessage(text){ document.getElementById('message').textContent = text; }
+
+// ---------------- Rendering ----------------
+function renderBalance(){ document.getElementById('balance').textContent = balance; }
+
+function cardEl(card, faceDown){
+  const d = document.createElement('div');
+  d.className = 'card ' + (faceDown ? 'back' : card.color);
+  if(!faceDown) d.innerHTML = `<span class="rank">${card.rank}</span><span class="suit">${card.suit}</span>`;
+  requestAnimationFrame(()=> requestAnimationFrame(()=> d.classList.add('dealt')));
+  return d;
+}
+function renderCardsRow(id, cards, faceDown){
+  const row = document.getElementById(id);
+  row.innerHTML = '';
+  cards.forEach(c=> row.appendChild(cardEl(c, faceDown)));
+}
+
+function renderTable(){
+  document.getElementById('playerStackVal').textContent = playerStack;
+  document.getElementById('aiStackVal').textContent = aiStack;
+  document.getElementById('potLine').innerHTML = t('potFmt', pot);
+  const streetKey = {preflop:'streetPreflop', flop:'streetFlop', turn:'streetTurn', river:'streetRiver', showdown:'streetShowdown'}[street];
+  document.getElementById('streetLabel').textContent = streetKey ? t(streetKey) : '';
+  document.getElementById('playerSeat').classList.toggle('turn', toAct==='player' && handActive);
+  document.getElementById('aiSeat').classList.toggle('turn', toAct==='ai' && handActive);
+
+  const amountToCall = Math.max(streetContrib.player, streetContrib.ai) - streetContrib.player;
+
+  const myTurn = toAct==='player' && handActive && !busy;
+  document.getElementById('foldBtn').disabled = !myTurn;
+  document.getElementById('raiseBtn').disabled = !myTurn || playerStack<=0;
+  document.getElementById('allinBtn').disabled = !myTurn || playerStack<=0;
+  const checkCallBtn = document.getElementById('checkCallBtn');
+  checkCallBtn.disabled = !myTurn;
+  checkCallBtn.textContent = amountToCall>0 ? t('call', Math.min(amountToCall, playerStack)) : t('check');
+
+  document.getElementById('actionButtons').style.display = handActive ? 'flex' : 'none';
+  document.getElementById('cashOutBtn').style.display = sessionActive ? 'inline-block' : 'none';
+  document.getElementById('cashOutBtn').disabled = handActive || busy;
+  document.getElementById('nextHandBtn').style.display = (sessionActive && !handActive && playerStack>0 && aiStack>0) ? 'inline-block' : 'none';
+}
+
+// ---------------- Buy-in / session ----------------
+function showBuyinHint(text){ document.getElementById('buyinHint').textContent = text || ''; }
+
+document.getElementById('startTableBtn').addEventListener('click', ()=>{
+  const input = document.getElementById('buyinInput');
+  const raw = input.value.trim();
+  const amt = Math.floor(Number(raw));
+  if(raw==='' || !Number.isFinite(amt) || amt < 200){ showBuyinHint(t('buyinHintMin', 200)); return; }
+  if(amt > balance){ showBuyinHint(t('buyinHintNoFunds')); return; }
+  showBuyinHint('');
+  balance -= amt;
+  playerStack = amt;
+  aiStack = amt;
+  sessionActive = true;
+  saveState();
+  document.getElementById('buyinPanel').style.display = 'none';
+  document.getElementById('tableArea').style.display = 'block';
+  document.getElementById('logList').innerHTML = '';
+  renderBalance();
+  startHand();
+});
+
+function endSession(cashedOut){
+  sessionActive = false;
+  handActive = false;
+  street = 'idle';
+  document.getElementById('buyinPanel').style.display = 'block';
+  document.getElementById('tableArea').style.display = 'none';
+  document.getElementById('buyinInput').value = Math.max(200, Math.min(balance, 500));
+  showBuyinHint('');
+  setMessage(t('msgSit'));
+  renderBalance();
+  saveState();
+}
+
+document.getElementById('cashOutBtn').addEventListener('click', ()=>{
+  // Only between hands — cashing out mid-hand would abandon whatever's
+  // already committed to the pot and leave a dangling hand in progress.
+  if(!sessionActive || busy || handActive) return;
+  const amt = playerStack;
+  balance += amt;
+  playerStack = 0;
+  const msg = t('msgCashOut', amt);
+  log('sys', msg);
+  setMessage(msg);
+  endSession(true);
+});
+
+// ---------------- Hand lifecycle ----------------
+// Called right after a hand resolves (fold or showdown), not just from the
+// next startHand() call — otherwise busting sat frozen forever since
+// nextHandBtn is hidden once a stack hits 0, so startHand() never got
+// called again to notice it.
+function checkBust(){
+  if(playerStack<=0){
+    setTimeout(()=>{ if(!sessionActive) return; setMessage(t('msgBusted')); log('sys', t('msgBusted')); endSession(false); }, 1200);
+    return true;
+  }
+  if(aiStack<=0){
+    setTimeout(()=>{ if(!sessionActive) return; setMessage(t('msgAiBusted')); log('sys', t('msgAiBusted')); endSession(false); }, 1200);
+    return true;
+  }
+  return false;
+}
+
+function startHand(){
+  deck = shuffle(buildDeck());
+  playerHole = [deck.pop(), deck.pop()];
+  aiHole = [deck.pop(), deck.pop()];
+  community = [];
+  pot = 0;
+  street = 'preflop';
+  streetContrib = {player:0, ai:0};
+  actedThisStreet = {player:false, ai:false};
+  lastRaiseSize = BB;
+  handActive = true;
+  busy = false;
+
+  const sbSide = button, bbSide = button==='player' ? 'ai' : 'player';
+  const sbAmt = postContribution(sbSide, SB);
+  const bbAmt = postContribution(bbSide, BB);
+  log('sys', t('msgHandStart', sbAmt, bbAmt));
+  log('sys', button==='player' ? t('msgYouButton') : t('msgAiButton'));
+
+  renderCardsRow('playerCards', playerHole, false);
+  renderCardsRow('aiCards', aiHole, true);
+  renderCardsRow('communityCards', [], false);
+  sfx.deal();
+
+  toAct = button; // button acts first pre-flop
+  setMessage(toAct==='player' ? t('msgYourTurn') : '');
+  renderTable();
+  if(toAct==='ai') setTimeout(aiTurn, 700);
+}
+
+function postContribution(who, amount){
+  const stack = who==='player' ? playerStack : aiStack;
+  const amt = Math.min(amount, stack);
+  if(who==='player') playerStack -= amt; else aiStack -= amt;
+  streetContrib[who] += amt;
+  pot += amt;
+  return amt;
+}
+
+document.getElementById('nextHandBtn').addEventListener('click', ()=>{
+  if(busy) return;
+  button = button==='player' ? 'ai' : 'player';
+  startHand();
+});
+
+// ---------------- Betting actions ----------------
+function amountToCallFor(who){
+  return Math.max(streetContrib.player, streetContrib.ai) - streetContrib[who];
+}
+
+// `let playerStack`/`aiStack` are ordinary top-level bindings, not properties
+// of `window` — so mutating them has to go through explicit get/set helpers
+// rather than a dynamic `window[stack]` lookup (which silently reads/writes
+// a phantom global and corrupts the pot with NaN).
+function getStack(who){ return who==='player' ? playerStack : aiStack; }
+function setStack(who, val){ if(who==='player') playerStack = val; else aiStack = val; }
+
+function applyAction(who, action, toAmount){
+  if(action==='fold'){
+    endHandByFold(who==='player' ? 'ai' : 'player');
+    return;
+  }
+  if(action==='check'){
+    actedThisStreet[who] = true;
+  } else if(action==='call'){
+    const need = amountToCallFor(who);
+    const amt = Math.min(need, getStack(who));
+    setStack(who, getStack(who) - amt);
+    streetContrib[who] += amt;
+    pot += amt;
+    actedThisStreet[who] = true;
+  } else { // 'bet' or 'raise' — toAmount is the TOTAL streetContrib target for this player
+    const prevMax = Math.max(streetContrib.player, streetContrib.ai);
+    const current = streetContrib[who];
+    let target = Math.min(toAmount, current + getStack(who));
+    const amt = target - current;
+    setStack(who, getStack(who) - amt);
+    streetContrib[who] = target;
+    pot += amt;
+    lastRaiseSize = Math.max(BB, target - prevMax);
+    actedThisStreet[who] = true;
+    actedThisStreet[who==='player'?'ai':'player'] = false;
+  }
+  renderTable();
+  checkRoundProgress();
+}
+
+function endHandByFold(winner){
+  handActive = false;
+  setStack(winner, getStack(winner) + pot);
+  sfx.fold();
+  const who = winner==='player' ? t('you') : t('dealer');
+  const msg = t('msgWinFold', who, pot);
+  setMessage(msg); log('sys', msg);
+  pot = 0;
+  street = 'idle';
+  toAct = null;
+  revealAiIfNeeded(false);
+  busy = false;
+  renderTable();
+  checkBust();
+}
+
+function checkRoundProgress(){
+  const matched = streetContrib.player === streetContrib.ai;
+  const bothActed = actedThisStreet.player && actedThisStreet.ai;
+  if(matched && bothActed){
+    advanceStreet();
+    return;
+  }
+  toAct = toAct==='player' ? 'ai' : 'player';
+  // If the next actor has no chips left to act with, treat as an automatic check.
+  const nextStack = toAct==='player' ? playerStack : aiStack;
+  if(nextStack<=0 && streetContrib.player===streetContrib.ai){
+    actedThisStreet[toAct] = true;
+    checkRoundProgress();
+    return;
+  }
+  if(toAct==='ai'){
+    renderTable();
+    setTimeout(aiTurn, 650);
+  } else {
+    busy = false;
+    renderTable();
+    setMessage(t('msgYourTurn'));
+  }
+}
+
+function advanceStreet(){
+  streetContrib = {player:0, ai:0};
+  actedThisStreet = {player:false, ai:false};
+  lastRaiseSize = BB;
+  const bothAllIn = playerStack===0 && aiStack===0;
+  if(street==='preflop'){
+    street='flop';
+    community.push(deck.pop(), deck.pop(), deck.pop());
+  } else if(street==='flop'){
+    street='turn';
+    community.push(deck.pop());
+  } else if(street==='turn'){
+    street='river';
+    community.push(deck.pop());
+  } else if(street==='river'){
+    doShowdown();
+    return;
+  }
+  renderCardsRow('communityCards', community, false);
+  sfx.deal();
+  toAct = button==='player' ? 'ai' : 'player'; // non-button acts first postflop
+  renderTable();
+  if(bothAllIn || playerStack===0 || aiStack===0){
+    // No more decisions possible for whichever side is all-in — run out the board.
+    setTimeout(advanceStreet, 900);
+    return;
+  }
+  if(toAct==='ai'){
+    setTimeout(aiTurn, 700);
+  } else {
+    busy = false;
+    renderTable();
+    setMessage(t('msgYourTurn'));
+  }
+}
+
+function revealAiIfNeeded(reveal){
+  renderCardsRow('aiCards', aiHole, !reveal);
+}
+
+function doShowdown(){
+  street = 'showdown';
+  handActive = false;
+  toAct = null;
+  revealAiIfNeeded(true);
+  const pScore = evaluate7([...playerHole, ...community]);
+  const aScore = evaluate7([...aiHole, ...community]);
+  const cmp = compareScore(pScore, aScore);
+  let msg;
+  if(cmp > 0){
+    playerStack += pot;
+    sfx.win();
+    msg = t('msgShowdown', t('you'), t(HAND_NAME_KEY[pScore[0]]), pot);
+  } else if(cmp < 0){
+    aiStack += pot;
+    sfx.lose();
+    msg = t('msgShowdown', t('dealer'), t(HAND_NAME_KEY[aScore[0]]), pot);
+  } else {
+    playerStack += pot/2;
+    aiStack += pot/2;
+    msg = t('msgSplit', pot);
+  }
+  pot = 0;
+  setMessage(msg); log('sys', msg);
+  busy = false;
+  renderTable();
+  checkBust();
+}
+
+// ---------------- Player controls ----------------
+document.getElementById('foldBtn').addEventListener('click', ()=>{
+  if(toAct!=='player' || !handActive || busy) return;
+  log('you', t('msgYouFold'));
+  applyAction('player','fold');
+});
+document.getElementById('checkCallBtn').addEventListener('click', ()=>{
+  if(toAct!=='player' || !handActive || busy) return;
+  const need = amountToCallFor('player');
+  sfx.chip();
+  if(need<=0){ log('you', t('msgYouCheck')); applyAction('player','check'); }
+  else { const amt=Math.min(need, playerStack); log('you', t('msgYouCall', amt)); applyAction('player','call'); }
+});
+document.getElementById('raiseBtn').addEventListener('click', ()=>{
+  if(toAct!=='player' || !handActive || busy) return;
+  const row = document.getElementById('raiseRow');
+  const shown = row.style.display !== 'none';
+  row.style.display = shown ? 'none' : 'flex';
+  if(!shown){
+    const current = Math.max(streetContrib.player, streetContrib.ai);
+    const minRaise = current + lastRaiseSize;
+    document.getElementById('raiseInput').value = Math.min(minRaise, streetContrib.player + playerStack);
+    document.getElementById('raiseInput').min = Math.min(minRaise, streetContrib.player + playerStack);
+  }
+});
+document.getElementById('presetHalf').addEventListener('click', ()=>{
+  const current = Math.max(streetContrib.player, streetContrib.ai);
+  const target = current + Math.round(pot*0.5);
+  document.getElementById('raiseInput').value = Math.min(target, streetContrib.player + playerStack);
+});
+document.getElementById('presetPot').addEventListener('click', ()=>{
+  const current = Math.max(streetContrib.player, streetContrib.ai);
+  const target = current + pot;
+  document.getElementById('raiseInput').value = Math.min(target, streetContrib.player + playerStack);
+});
+document.getElementById('confirmRaiseBtn').addEventListener('click', ()=>{
+  if(toAct!=='player' || !handActive || busy) return;
+  const raw = document.getElementById('raiseInput').value;
+  let target = Math.floor(Number(raw));
+  const maxTarget = streetContrib.player + playerStack;
+  const current = Math.max(streetContrib.player, streetContrib.ai);
+  if(!Number.isFinite(target) || target <= current){ return; }
+  target = Math.min(target, maxTarget);
+  document.getElementById('raiseRow').style.display = 'none';
+  sfx.chip();
+  const isBet = current===0;
+  const wasAllIn = target === maxTarget && playerStack>0;
+  log('you', wasAllIn ? t('msgYouAllin', target) : (isBet ? t('msgYouBet', target) : t('msgYouRaise', target)));
+  applyAction('player', 'bet', target);
+});
+document.getElementById('allinBtn').addEventListener('click', ()=>{
+  if(toAct!=='player' || !handActive || busy) return;
+  const target = streetContrib.player + playerStack;
+  sfx.chip();
+  log('you', t('msgYouAllin', target));
+  applyAction('player', 'bet', target);
+});
+
+// ---------------- AI ----------------
+function preflopScore(hole){
+  const hi = Math.max(hole[0].value, hole[1].value), lo = Math.min(hole[0].value, hole[1].value);
+  let score = hi*2 + lo;
+  if(hole[0].value===hole[1].value) score += 20 + hole[0].value;
+  if(hole[0].suit===hole[1].suit) score += 8;
+  if(hole[0].value!==hole[1].value){
+    const gap = hi-lo;
+    if(gap===1) score += 6; else if(gap===2) score += 3; else if(gap>=5) score -= 6;
+  }
+  return score;
+}
+function handStrength(){
+  if(street==='preflop') return Math.max(0, Math.min(1, preflopScore(aiHole)/72));
+  const score = evaluate7([...aiHole, ...community]);
+  return Math.max(0, Math.min(1, score[0]/8 + (score[1]||0)/200));
+}
+
+function aiTurn(){
+  if(!handActive || toAct!=='ai') return;
+  busy = true;
+  renderTable();
+  const need = amountToCallFor('ai');
+  const strength = handStrength();
+  const current = Math.max(streetContrib.player, streetContrib.ai);
+  const potOdds = need>0 ? need/(pot+need) : 0;
+  const bluff = Math.random() < 0.07 && street!=='preflop';
+
+  let decision;
+  if(need<=0){
+    if((strength>0.55 || bluff) && aiStack>0 && Math.random()<0.75){
+      const target = current + Math.max(BB, Math.round(pot* (0.45+Math.random()*0.4)) || BB);
+      decision = {action:'bet', target};
+    } else {
+      decision = {action:'check'};
+    }
+  } else if(bluff && aiStack > need*2){
+    decision = {action:'bet', target: current + need + Math.max(BB, Math.round((pot+need)*0.7))};
+  } else if(strength > 0.72){
+    if(Math.random()<0.55 && aiStack>need){
+      decision = {action:'bet', target: current + Math.max(lastRaiseSize, Math.round((pot+need)* (0.6+Math.random()*0.4)))};
+    } else decision = {action:'call'};
+  } else if(strength + 0.22 > potOdds || need <= BB){
+    decision = {action:'call'};
+  } else {
+    decision = {action:'fold'};
+  }
+
+  setTimeout(()=>{
+    if(decision.action==='fold'){
+      log('ai', t('msgAiFold'));
+      applyAction('ai','fold');
+    } else if(decision.action==='check'){
+      log('ai', t('msgAiCheck'));
+      applyAction('ai','check');
+    } else if(decision.action==='call'){
+      const amt = Math.min(need, aiStack);
+      log('ai', t('msgAiCall', amt));
+      applyAction('ai','call');
+    } else {
+      const maxTarget = streetContrib.ai + aiStack;
+      const target = Math.min(decision.target, maxTarget);
+      const wasAllIn = target===maxTarget;
+      const isBet = current===0;
+      log('ai', wasAllIn ? t('msgAiAllin', target) : (isBet ? t('msgAiBet', target) : t('msgAiRaise', target)));
+      applyAction('ai', 'bet', target);
+    }
+  }, 300);
+}
+
+// ---------------- Persistence ----------------
+const STORE_KEY = 'holdem-v1';
+function saveState(){
+  try{ localStorage.setItem(STORE_KEY, JSON.stringify({lang, muted, balance})); }catch(e){}
+}
+function loadState(){
+  try{
+    const raw = localStorage.getItem(STORE_KEY);
+    if(!raw) return;
+    const s = JSON.parse(raw);
+    if(s.lang==='zh'||s.lang==='en') lang = s.lang;
+    if(typeof s.muted==='boolean') muted = s.muted;
+    if(typeof s.balance==='number' && isFinite(s.balance) && s.balance>=0) balance = Math.floor(s.balance);
+  }catch(e){}
+}
+
+// ---------------- Balance editor ----------------
+function flashBalance(){
+  const el = document.getElementById('balance');
+  el.style.transition='none'; el.style.color='#fff';
+  requestAnimationFrame(()=>{ el.style.transition='color .6s'; el.style.color='var(--gold)'; });
+}
+document.getElementById('setBalanceBtn').addEventListener('click', ()=>{
+  if(sessionActive) return;
+  const input = document.getElementById('balanceInput');
+  const val = Math.floor(Number(input.value.trim()));
+  if(input.value.trim()==='' || !Number.isFinite(val) || val<0) return;
+  balance = val; input.value=''; flashBalance(); saveState(); renderBalance();
+});
+document.getElementById('addBalanceBtn').addEventListener('click', ()=>{
+  if(sessionActive) return;
+  const input = document.getElementById('balanceInput');
+  const val = Math.floor(Number(input.value.trim()));
+  if(input.value.trim()==='' || !Number.isFinite(val) || val<=0) return;
+  balance += val; input.value=''; flashBalance(); saveState(); renderBalance();
+});
+
+// ---------------- Language / mute ----------------
+function applyLang(){
+  document.documentElement.lang = (lang==='zh') ? 'zh-Hant' : 'en';
+  document.querySelectorAll('[data-i18n]').forEach(elm=>{ elm.textContent = t(elm.dataset.i18n); });
+  document.querySelectorAll('[data-i18n-ph]').forEach(elm=>{ elm.placeholder = t(elm.dataset.i18nPh); });
+  document.getElementById('langBtn').textContent = t('langBtn');
+  if(!sessionActive) setMessage(t('msgSit'));
+  renderTable();
+}
+document.getElementById('langBtn').addEventListener('click', ()=>{
+  lang = (lang==='zh') ? 'en' : 'zh';
+  applyLang();
+  saveState();
+});
+const muteBtn = document.getElementById('muteBtn');
+function renderMuteBtn(){
+  muteBtn.textContent = muted ? '🔇' : '🔊';
+  muteBtn.setAttribute('aria-pressed', String(muted));
+}
+muteBtn.addEventListener('click', ()=>{
+  muted = !muted;
+  renderMuteBtn();
+  if(!muted) sfx.chip();
+  saveState();
+});
+
+// ---------------- Startup ----------------
+loadState();
+renderMuteBtn();
+renderBalance();
+document.getElementById('buyinInput').value = Math.max(200, Math.min(balance, 500));
+applyLang();
+</script>
+</body>
+</html>

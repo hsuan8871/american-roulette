@@ -4,11 +4,11 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Casino Lobby</title>
-<meta name="description" content="Pick a table: American Roulette, Baccarat, Blackjack, or Devil Roulette. All single-file, no-backend browser games with full rules shown alongside.">
+<meta name="description" content="Pick a table: American Roulette, Baccarat, Blackjack, Devil Roulette, or Heads-Up Hold'em. All single-file, no-backend browser games with full rules shown alongside.">
 <meta name="theme-color" content="#0b3d1e">
 <meta property="og:type" content="website">
 <meta property="og:title" content="Casino Lobby">
-<meta property="og:description" content="American Roulette, Baccarat, Blackjack, and Devil Roulette — pick a table.">
+<meta property="og:description" content="American Roulette, Baccarat, Blackjack, Devil Roulette, and Heads-Up Hold'em — pick a table.">
 <meta property="og:url" content="https://hsuan8871.github.io/casino-game/">
 <meta property="og:image" content="https://hsuan8871.github.io/casino-game/preview.png">
 <meta property="og:image:width" content="1200">
@@ -246,6 +246,22 @@
     </div>
   </div>
 
+  <div class="game-card">
+    <div class="game-visual">♠️</div>
+    <div class="game-title">Heads-Up Hold'em</div>
+    <div class="game-sub" data-i18n="holdemSub">單挑德州撲克・真實手牌評分・你 vs AI 莊家</div>
+    <a class="play-btn" href="holdem.html" data-i18n="playNow">▶ 開始遊戲</a>
+    <div class="rules">
+      <h3 data-i18n="rulesTitle">遊戲規則</h3>
+      <div data-i18n="holdemRules1">單挑(Heads-Up)德州撲克:你和 AI 莊家兩人對戰,各發 2 張手牌,搭配 5 張公共牌組成最大的 5 張牌組合。</div>
+      <ul>
+        <li data-i18n="holdemRule2">盲注固定 $10 / $20,每手交替坐莊。莊家位翻牌前先行動、翻牌後最後行動</li>
+        <li data-i18n="holdemRule3">下注輪:preflop → flop(3 張公共牌)→ turn(第 4 張)→ river(第 5 張)→ 攤牌比大小</li>
+        <li data-i18n="holdemRule4">帶入的籌碼從餘額扣除,隨時可以「離桌結算」換回餘額;籌碼歸零就得重新入座</li>
+      </ul>
+    </div>
+  </div>
+
 </div>
 
 <footer data-i18n="lobbyFooter">
@@ -294,7 +310,12 @@ const I18N = {
     buckshotRule3:'道具:🔍 放大鏡看下一發、🔪 小刀讓下一發傷害加倍、🚬 香菸回 1 點血、🥤 飲料退掉膛室裡那一發',
     buckshotRule4:'子彈打光會重新裝彈並補發道具,血量不會恢復,直到某一方倒下',
     buckshotRule5:'血量的單位就是錢:雙方各押上同樣賭注,每失去一條血,那條血的錢就轉進對方口袋,贏家拿走全部賭注',
-    lobbyFooter:'四款遊戲都純前端運作,不會把你的餘額或下注資料傳到任何伺服器——所有數值都只存在你目前的瀏覽器分頁裡。',
+    holdemSub:'單挑德州撲克・真實手牌評分・你 vs AI 莊家',
+    holdemRules1:'單挑(Heads-Up)德州撲克:你和 AI 莊家兩人對戰,各發 2 張手牌,搭配 5 張公共牌組成最大的 5 張牌組合。',
+    holdemRule2:'盲注固定 $10 / $20,每手交替坐莊。莊家位翻牌前先行動、翻牌後最後行動',
+    holdemRule3:'下注輪:preflop → flop(3 張公共牌)→ turn(第 4 張)→ river(第 5 張)→ 攤牌比大小',
+    holdemRule4:'帶入的籌碼從餘額扣除,隨時可以「離桌結算」換回餘額;籌碼歸零就得重新入座',
+    lobbyFooter:'五款遊戲都純前端運作,不會把你的餘額或下注資料傳到任何伺服器——所有數值都只存在你目前的瀏覽器分頁裡。',
     langBtn:'English'
   },
   en: {
@@ -327,7 +348,12 @@ const I18N = {
     buckshotRule3:'Items: 🔍 magnifier reveals the next shell, 🔪 knife doubles your next shot\'s damage, 🚬 cigarette heals 1 HP, 🥤 drink ejects the chambered shell without firing',
     buckshotRule4:'When shells run out the gun reloads and both sides get new items — HP does not recover until someone goes down',
     buckshotRule5:'HP is money: both sides put up the same bet, and losing a heart hands its cash to the other side — the winner takes both stakes',
-    lobbyFooter:'All four games run entirely client-side — your balance and bets are never sent to any server; everything lives only in this browser tab.',
+    holdemSub:'Heads-Up Hold\'em ・ real hand rankings ・ you vs an AI dealer',
+    holdemRules1:'Heads-up Texas Hold\'em: you and the AI dealer each get 2 hole cards, and build the best 5-card hand together with 5 community cards.',
+    holdemRule2:'Blinds are fixed at $10 / $20, alternating the button each hand. The button acts first pre-flop and last on every street after',
+    holdemRule3:'Betting rounds: pre-flop → flop (3 community cards) → turn (4th card) → river (5th card) → showdown',
+    holdemRule4:'Your buy-in is deducted from your balance — "Cash Out" converts it back any time; busting means sitting back down with a new buy-in',
+    lobbyFooter:'All five games run entirely client-side — your balance and bets are never sent to any server; everything lives only in this browser tab.',
     langBtn:'中文'
   }
 };
