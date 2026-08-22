@@ -141,7 +141,11 @@
   .grid{
     display:grid;
     grid-template-columns: 46px repeat(12, 46px) 50px;
-    grid-template-rows: repeat(3, 46px);
+    /* rows 1-3: numbers; row 4: dozens (1st/2nd/3rd 12); row 5: the
+       even-money row (low/even/red/black/odd/high) — all sharing the same
+       column tracks as the numbers above them, so they can never drift out
+       of alignment the way a separately-sized sibling grid could. */
+    grid-template-rows: repeat(3, 46px) auto auto;
     gap:2px;
     position:relative;
   }
@@ -200,24 +204,6 @@
     border:1px solid #157a3c;
   }
   .col2to1{ grid-column: 14; }
-  .bottom-row{
-    display:grid;
-    grid-template-columns: 46px repeat(3, 552px/3) 50px;
-    margin-top:2px;
-  }
-  .dozens{
-    display:grid;
-    grid-template-columns: repeat(3, 1fr);
-    grid-column: 2 / span 12;
-    gap:2px;
-  }
-  .evens{
-    display:grid;
-    grid-template-columns: repeat(6, 1fr);
-    grid-column: 2 / span 12;
-    gap:2px;
-    margin-top:2px;
-  }
   .chipdot{
     position:absolute;
     top:50%; left:50%;
@@ -464,7 +450,7 @@
     .wheel-box{ transform:rotateX(34deg) scale(.84); }
     .grid{
       grid-template-columns: 38px repeat(12, 38px) 44px;
-      grid-template-rows: repeat(3, 38px);
+      grid-template-rows: repeat(3, 38px) auto auto;
     }
     .cell{ font-size:13px; }
     .zero-cell{ font-size:15px; }
@@ -515,16 +501,6 @@
   <div class="table-wrap">
     <div class="grid" id="grid">
       <div id="overlay"></div>
-    </div>
-    <div class="bottom-row">
-      <div></div>
-      <div class="dozens" id="dozens"></div>
-      <div></div>
-    </div>
-    <div class="bottom-row">
-      <div></div>
-      <div class="evens" id="evens"></div>
-      <div></div>
     </div>
   </div>
   </div>
@@ -925,30 +901,34 @@ function buildOverlay(){
 buildOverlay();
 window.addEventListener('resize', buildOverlay);
 
-// dozens
-const dozens = document.getElementById('dozens');
-[['1st 12','d0'],['2nd 12','d1'],['3rd 12','d2']].forEach(([label,key])=>{
+// dozens (1st/2nd/3rd 12) — each spans the same 4 number-columns as its
+// 12 numbers (grid-row 4), so it can never drift out of alignment with them.
+[['1st 12','d0',2],['2nd 12','d1',6],['3rd 12','d2',10]].forEach(([label,key,colStart])=>{
   const c = document.createElement('div');
   c.className = 'cell outside';
   c.textContent = label;
   c.dataset.betKey = key;
+  c.style.gridColumn = colStart + ' / span 4';
+  c.style.gridRow = '4';
   makeBetTarget(c, key, label, label);
-  dozens.appendChild(c);
+  grid.appendChild(c);
 });
 
-// evens row: 1-18, EVEN, RED, BLACK, ODD, 19-36
-const evens = document.getElementById('evens');
+// even-money row: 1-18, EVEN, RED, BLACK, ODD, 19-36 — each spans 2 number-
+// columns (grid-row 5), same alignment guarantee as the dozens above.
 [
-  ['1 to 18','low'],['EVEN','even'],['RED','red'],['BLACK','black'],['ODD','odd'],['19 to 36','high']
-].forEach(([label,key])=>{
+  ['1 to 18','low',2],['EVEN','even',4],['RED','red',6],['BLACK','black',8],['ODD','odd',10],['19 to 36','high',12]
+].forEach(([label,key,colStart])=>{
   const c = document.createElement('div');
   c.className = 'cell outside';
   if(key==='red') c.classList.add('red');
   else if(key==='black') c.classList.add('black');
   c.textContent = label;
   c.dataset.betKey = key;
+  c.style.gridColumn = colStart + ' / span 2';
+  c.style.gridRow = '5';
   makeBetTarget(c, key, label, label);
-  evens.appendChild(c);
+  grid.appendChild(c);
 });
 
 // ---------------- Chips ----------------
