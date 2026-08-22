@@ -47,10 +47,29 @@
     margin-bottom:16px; border:1px solid rgba(255,255,255,.08);
   }
   .stats .grp{ display:flex; align-items:center; gap:6px; }
-  .hp-hearts{ display:flex; gap:2px; }
+  .hp-hearts{ display:flex; gap:2px; justify-content:center; }
   .heart{ font-size:16px; filter:drop-shadow(0 1px 2px rgba(0,0,0,.6)); }
   .heart.empty{ opacity:.25; }
   button.action.small{ padding:6px 12px; font-size:12px; }
+  .balance-editor{ display:flex; gap:6px; align-items:center; }
+  .balance-editor input{
+    width:90px; padding:6px 8px; border-radius:6px; border:1px solid #666;
+    background:#111; color:#fff; font-size:13px;
+  }
+  .pot-value{ font-size:11.5px; color:var(--gold); margin-top:4px; }
+
+  .bet-panel{
+    width:100%; background:rgba(0,0,0,.3); border:1px solid rgba(255,255,255,.12);
+    border-radius:10px; padding:16px 18px; text-align:center; margin-bottom:4px;
+  }
+  .bet-title{ font-size:16px; font-weight:bold; color:var(--gold); margin-bottom:6px; }
+  .bet-sub{ font-size:12px; color:#d8c0c0; line-height:1.6; margin-bottom:12px; }
+  .bet-row{ display:flex; gap:10px; justify-content:center; align-items:center; }
+  .bet-row input{
+    width:110px; padding:9px 10px; border-radius:8px; border:1px solid #666;
+    background:#111; color:#fff; font-size:15px; text-align:center;
+  }
+  .bet-hint{ font-size:12px; color:#f2706f; margin-top:8px; min-height:16px; }
 
   #message{
     min-height:44px; max-width:640px; text-align:center; font-size:16px; font-weight:bold;
@@ -174,8 +193,14 @@
 <div class="subtitle" data-i18n="subtitle">極限邏輯與運氣的散彈槍對決</div>
 
 <div class="stats">
+  <div class="grp"><span data-i18n="balance">餘額</span> $<b id="balance">1000</b></div>
   <div class="grp"><span data-i18n="roundLabel">回合</span> <b id="roundNum">1</b></div>
   <div class="grp"><span data-i18n="recordLabel">戰績</span> <b id="record">0 勝 0 敗</b></div>
+  <div class="balance-editor">
+    <input type="number" id="balanceInput" data-i18n-ph="amountPh" placeholder="輸入金額" min="0" step="1">
+    <button class="action secondary small" id="setBalanceBtn" data-i18n="setBalance">設定餘額</button>
+    <button class="action secondary small" id="addBalanceBtn" data-i18n="addBalance">+ 加值</button>
+  </div>
   <button class="action secondary small" id="langBtn">English</button>
   <button class="action secondary small" id="muteBtn" aria-pressed="false">🔊</button>
 </div>
@@ -184,11 +209,22 @@
 
 <div class="table">
   <div class="stage">
-    <div class="combatants">
+    <div class="bet-panel" id="betPanel">
+      <div class="bet-title" data-i18n="betTitle">💰 這場要賭多少？</div>
+      <div class="bet-sub" data-i18n="betSub">血量的單位就是錢——你和 AI 各押上這個金額，每失去一條血，那條血的錢就進對方口袋。</div>
+      <div class="bet-row">
+        <input type="number" id="betInput" min="10" step="10" value="100">
+        <button class="action gold" id="startDuelBtn" data-i18n="startDuel">開始對決</button>
+      </div>
+      <div class="bet-hint" id="betHint"></div>
+    </div>
+
+    <div class="combatants" id="combatants" style="display:none;">
       <div class="fighter" id="playerFighter">
         <div class="avatar" id="playerAvatar">🧑</div>
         <div class="name" data-i18n="you">你</div>
         <div class="hp-hearts" id="playerHearts"></div>
+        <div class="pot-value" id="playerPotValue"></div>
       </div>
       <div class="gun-wrap">
         <div class="muzzle-flash" id="muzzleFlash">💥</div>
@@ -198,6 +234,7 @@
         <div class="avatar" id="aiAvatar">😈</div>
         <div class="name" data-i18n="dealer">莊家 AI</div>
         <div class="hp-hearts" id="aiHearts"></div>
+        <div class="pot-value" id="aiPotValue"></div>
       </div>
     </div>
 
@@ -208,11 +245,11 @@
 
     <div class="items-row" id="playerItems"></div>
 
-    <div class="actions-row">
-      <button class="action" id="shootOppoBtn"></button>
-      <button class="action secondary" id="shootSelfBtn"></button>
+    <div class="actions-row" id="actionsRow">
+      <button class="action" id="shootOppoBtn" data-i18n="shootOppo">🔫 射擊對方</button>
+      <button class="action secondary" id="shootSelfBtn" data-i18n="shootSelf">😨 射擊自己</button>
     </div>
-    <button class="action gold" id="restartBtn" style="display:none;" data-i18n="playAgain">🔄 再玩一場</button>
+    <button class="action gold" id="restartBtn" style="display:none;" data-i18n="playAgain">💰 再賭一場</button>
   </div>
 
   <div class="log-panel" id="logPanel">
@@ -228,6 +265,7 @@
     <li data-i18n="rule2">對自己開槍若是空包彈，可以再拿一次回合；若是實彈則受傷，換對方行動。對對方開槍不論結果都會換人行動。</li>
     <li data-i18n="rule3">道具可在射擊前使用：🔍 放大鏡看下一發、🔪 小刀讓下一發傷害加倍、🚬 香菸回 1 點血、🥤 飲料退掉膛室裡那一發（不開槍）。</li>
     <li data-i18n="rule4">子彈打光會重新裝彈並補發道具，血量不會恢復。任一方血量歸零就結束這場對決。</li>
+    <li data-i18n="rule5">血量的單位就是錢：開打前雙方各押上同樣的賭注，平分成每一條血；每失去一條血，那條血的錢就轉進對方口袋。贏的一方會拿走雙方全部的賭注。</li>
   </ul>
 </div>
 
@@ -236,12 +274,25 @@
 const I18N = {
   zh: {
     backToLobby:'← 選擇遊戲', title:'惡魔輪盤', subtitle:'極限邏輯與運氣的散彈槍對決',
+    balance:'餘額', amountPh:'輸入金額', setBalance:'設定餘額', addBalance:'+ 加值',
     roundLabel:'回合', recordLabel:'戰績', you:'你', dealer:'莊家 AI',
-    logTitle:'📜 對戰紀錄', rulesTitle:'遊戲規則', playAgain:'🔄 再玩一場',
+    logTitle:'📜 對戰紀錄', rulesTitle:'遊戲規則', playAgain:'💰 再賭一場',
+    betTitle:'💰 這場要賭多少？',
+    betSub:'血量的單位就是錢——你和 AI 各押上這個金額,每失去一條血,那條血的錢就進對方口袋。',
+    startDuel:'開始對決',
+    betHintMin:min=>`最低下注 $${min}。`,
+    betHintNoFunds:'餘額不足,請輸入不超過目前餘額的金額。',
+    betHintBad:'請輸入有效的下注金額(整數)。',
+    perHeartFmt:v=>`每條血 $${v}`,
+    potFmt:v=>`身上籌碼 $${v}`,
+    msgBetPlaced:(bet,max)=>`💰 雙方各押上 $${bet},共 ${max} 條血,每條血值 $${(bet/max).toFixed(2)}。開打！`,
+    msgWinMoney:v=>`🏆 AI 倒下了,你贏了這場對決,淨賺 $${v}！`,
+    msgLoseMoney:v=>`💀 你倒下了,AI 贏了這場對決,你輸掉了 $${v}。`,
     rule1:'散彈槍裡隨機裝入實彈與空包彈，數量公開、順序保密。你和 AI 輪流選擇「射擊對方」或「射擊自己」。',
     rule2:'對自己開槍若是空包彈，可以再拿一次回合；若是實彈則受傷，換對方行動。對對方開槍不論結果都會換人行動。',
     rule3:'道具可在射擊前使用：🔍 放大鏡看下一發、🔪 小刀讓下一發傷害加倍、🚬 香菸回 1 點血、🥤 飲料退掉膛室裡那一發（不開槍）。',
     rule4:'子彈打光會重新裝彈並補發道具，血量不會恢復。任一方血量歸零就結束這場對決。',
+    rule5:'血量的單位就是錢：開打前雙方各押上同樣的賭注，平分成每一條血；每失去一條血，那條血的錢就轉進對方口袋。贏的一方會拿走雙方全部的賭注。',
     shootOppo:'🔫 射擊對方', shootSelf:'😨 射擊自己',
     itemMag:'放大鏡', itemKnife:'小刀', itemSmoke:'香菸', itemDrink:'飲料',
     recordFmt:(w,l)=>`${w} 勝 ${l} 敗`,
@@ -277,12 +328,25 @@ const I18N = {
   },
   en: {
     backToLobby:'← Choose a Game', title:'Devil Roulette', subtitle:'A shotgun duel of pure logic and luck',
+    balance:'Balance', amountPh:'Amount', setBalance:'Set Balance', addBalance:'+ Add',
     roundLabel:'Round', recordLabel:'Record', you:'You', dealer:'Dealer AI',
-    logTitle:'📜 Battle Log', rulesTitle:'House Rules', playAgain:'🔄 Play Again',
+    logTitle:'📜 Battle Log', rulesTitle:'House Rules', playAgain:'💰 Bet Again',
+    betTitle:'💰 How much are you staking?',
+    betSub:'HP is denominated in money — you and the AI each put up this amount, and every heart you lose hands that heart\'s cash to the other side.',
+    startDuel:'Start Duel',
+    betHintMin:min=>`$${min} minimum bet.`,
+    betHintNoFunds:'Not enough balance — enter an amount at or under your current balance.',
+    betHintBad:'Enter a valid whole-dollar bet amount.',
+    perHeartFmt:v=>`$${v} per heart`,
+    potFmt:v=>`Stack: $${v}`,
+    msgBetPlaced:(bet,max)=>`💰 Both sides put up $${bet} across ${max} HP — $${(bet/max).toFixed(2)} per heart. Fight!`,
+    msgWinMoney:v=>`🏆 The AI went down — you win the duel and net $${v}!`,
+    msgLoseMoney:v=>`💀 You went down — the AI wins the duel and takes your $${v}.`,
     rule1:'The shotgun is loaded with a random mix of live and blank shells — the count is public, the order is not. You and the AI take turns choosing to shoot the opponent or yourself.',
     rule2:'Shooting yourself with a blank grants another turn; a live shell damages you and passes the turn. Shooting the opponent always passes the turn regardless of the result.',
     rule3:'Items can be used before shooting: 🔍 magnifying glass reveals the next shell, 🔪 knife doubles your next shot\'s damage, 🚬 cigarette heals 1 HP, 🥤 drink ejects the chambered shell without firing.',
     rule4:'When shells run out the gun reloads and both sides get new items — HP does not recover. The duel ends when either side\'s HP hits 0.',
+    rule5:'HP is denominated in money: before the duel, both sides put up the same bet, split evenly across every heart. Losing a heart hands that heart\'s cash straight to the other side, and the winner walks away with both stakes.',
     shootOppo:'🔫 Shoot Opponent', shootSelf:'😨 Shoot Yourself',
     itemMag:'Magnifier', itemKnife:'Knife', itemSmoke:'Cigarette', itemDrink:'Drink',
     recordFmt:(w,l)=>`${w}W ${l}L`,
@@ -378,6 +442,10 @@ let round = 1;
 let busy = false;        // true while an animation/AI turn is resolving, blocks input
 let gameOver = false;
 let wins = 0, losses = 0;
+let balance = 1000;
+let currentBet = 0;    // total staked this duel; each side's "pot" starts at this amount, denominated by HP
+let playerPot = 0, aiPot = 0; // real transferable cash — every heart lost moves its dollar value to the other side
+let phase = 'betting'; // 'betting' before a duel starts, 'fighting' once the bet is placed
 
 const ITEM_KEYS = ['mag','knife','smoke','drink'];
 const ITEM_EMOJI = {mag:'🔍', knife:'🔪', smoke:'🚬', drink:'🥤'};
@@ -437,9 +505,37 @@ function renderHearts(el, hp){
   }
 }
 
+function renderBalance(){
+  document.getElementById('balance').textContent = balance;
+}
+
+function perHeartValue(){
+  return maxHp > 0 ? currentBet / maxHp : 0;
+}
+
+function renderPots(){
+  document.getElementById('playerPotValue').textContent =
+    phase==='fighting' ? t('potFmt', playerPot.toFixed(2)) : '';
+  document.getElementById('aiPotValue').textContent =
+    phase==='fighting' ? t('potFmt', aiPot.toFixed(2)) : '';
+}
+
 function renderAll(){
+  renderBalance();
+  document.getElementById('betPanel').style.display = phase==='fighting' ? 'none' : 'block';
+  document.getElementById('combatants').style.display = phase==='fighting' ? 'flex' : 'none';
+  document.getElementById('actionsRow').style.display = phase==='fighting' ? 'flex' : 'none';
+  if(phase !== 'fighting'){
+    document.getElementById('playerItems').innerHTML = '';
+    document.getElementById('shellCounts').innerHTML = '';
+    document.getElementById('shellsRow').innerHTML = '';
+    document.getElementById('peekBanner').innerHTML = '';
+    document.getElementById('restartBtn').style.display = 'none';
+    return;
+  }
   renderHearts(document.getElementById('playerHearts'), playerHp);
   renderHearts(document.getElementById('aiHearts'), aiHp);
+  renderPots();
   document.getElementById('playerFighter').classList.toggle('active', turn==='player' && !gameOver);
   document.getElementById('aiFighter').classList.toggle('active', turn==='ai' && !gameOver);
   document.getElementById('roundNum').textContent = round;
@@ -515,7 +611,16 @@ function useItem(side, key){
   } else if(key === 'smoke'){
     const hp = side==='player' ? playerHp : aiHp;
     if(hp < maxHp){
-      if(side==='player') playerHp = Math.min(maxHp, playerHp+1); else aiHp = Math.min(maxHp, aiHp+1);
+      const per = perHeartValue();
+      // Healing a heart claws its dollar value back out of whichever pot it
+      // was transferred into, keeping both pots in sync with hp * perHeart.
+      if(side==='player'){
+        playerHp = Math.min(maxHp, playerHp+1);
+        playerPot += per; aiPot = Math.max(0, aiPot - per);
+      } else {
+        aiHp = Math.min(maxHp, aiHp+1);
+        aiPot += per; playerPot = Math.max(0, playerPot - per);
+      }
       sfx.heal();
       log(side==='player'?'you':'ai', side==='player' ? t('itemUseSmoke') : t('itemUseSmokeAi'));
     } else {
@@ -548,7 +653,21 @@ function fireAt(target, shooter){
     if(shell === 'live'){
       sfx.blast();
       flashAvatar(target);
-      if(target === 'player') playerHp = Math.max(0, playerHp - dmg); else aiHp = Math.max(0, aiHp - dmg);
+      // Money moves in lockstep with HP: whoever loses hearts hands their
+      // dollar value straight to the other side, so the pots stay exactly
+      // in sync with (hp * perHeart) for both fighters at all times.
+      const per = perHeartValue();
+      if(target === 'player'){
+        const lost = Math.min(dmg, playerHp);
+        playerHp = Math.max(0, playerHp - dmg);
+        playerPot = Math.max(0, playerPot - lost*per);
+        aiPot += lost*per;
+      } else {
+        const lost = Math.min(dmg, aiHp);
+        aiHp = Math.max(0, aiHp - dmg);
+        aiPot = Math.max(0, aiPot - lost*per);
+        playerPot += lost*per;
+      }
     } else {
       sfx.empty();
     }
@@ -596,9 +715,18 @@ function checkGameOver(){
   if(playerHp <= 0 || aiHp <= 0){
     gameOver = true;
     if(aiHp <= 0 && playerHp > 0){
-      wins++; sfx.win(); setMessage(t('msgWin')); log('sys', t('msgWin'));
+      // The bet was already deducted from balance when the duel started, so
+      // winning returns the player's own stake plus the AI's matching stake.
+      wins++;
+      balance += currentBet * 2;
+      sfx.win();
+      const msg = t('msgWinMoney', currentBet);
+      setMessage(msg); log('sys', msg);
     } else if(playerHp <= 0){
-      losses++; sfx.lose(); setMessage(t('msgLose')); log('sys', t('msgLose'));
+      losses++;
+      sfx.lose();
+      const msg = t('msgLoseMoney', currentBet);
+      setMessage(msg); log('sys', msg);
     }
     saveState();
   }
@@ -660,7 +788,7 @@ function aiTurn(){
 // ---------------- Persistence ----------------
 const STORE_KEY = 'devil-roulette-v1';
 function saveState(){
-  try{ localStorage.setItem(STORE_KEY, JSON.stringify({lang, muted, wins, losses})); }catch(e){}
+  try{ localStorage.setItem(STORE_KEY, JSON.stringify({lang, muted, wins, losses, balance})); }catch(e){}
 }
 function loadState(){
   try{
@@ -671,6 +799,7 @@ function loadState(){
     if(typeof s.muted==='boolean') muted = s.muted;
     if(typeof s.wins==='number') wins = s.wins;
     if(typeof s.losses==='number') losses = s.losses;
+    if(typeof s.balance==='number' && isFinite(s.balance) && s.balance>=0) balance = Math.floor(s.balance);
   }catch(e){}
 }
 
@@ -678,6 +807,7 @@ function loadState(){
 function startMatch(){
   maxHp = MAX_HP_OPTIONS[Math.floor(Math.random()*MAX_HP_OPTIONS.length)];
   playerHp = maxHp; aiHp = maxHp;
+  playerPot = currentBet; aiPot = currentBet;
   items = { player:{mag:0,knife:0,smoke:0,drink:0}, ai:{mag:0,knife:0,smoke:0,drink:0} };
   knifeArmed = { player:false, ai:false };
   peekedNext = null;
@@ -685,18 +815,51 @@ function startMatch(){
   round = 1;
   busy = false;
   gameOver = false;
+  phase = 'fighting';
   document.getElementById('logList').innerHTML = '';
   reload();
-  setMessage(t('msgWelcome'));
-  log('sys', t('msgWelcome'));
+  const welcome = t('msgBetPlaced', currentBet, maxHp);
+  setMessage(welcome);
+  log('sys', welcome);
 }
 
-document.getElementById('restartBtn').addEventListener('click', startMatch);
+// ---------------- Betting flow ----------------
+function showBetHint(text){ document.getElementById('betHint').textContent = text || ''; }
+
+document.getElementById('startDuelBtn').addEventListener('click', ()=>{
+  const input = document.getElementById('betInput');
+  const raw = input.value.trim();
+  const bet = Math.floor(Number(raw));
+  if(raw === '' || !Number.isFinite(bet) || bet < 10){
+    showBetHint(t('betHintMin', 10));
+    return;
+  }
+  if(bet > balance){
+    showBetHint(t('betHintNoFunds'));
+    return;
+  }
+  showBetHint('');
+  balance -= bet;
+  currentBet = bet;
+  saveState();
+  startMatch();
+  renderAll();
+});
+
+document.getElementById('restartBtn').addEventListener('click', ()=>{
+  phase = 'betting';
+  currentBet = 0;
+  const input = document.getElementById('betInput');
+  input.value = Math.max(10, Math.min(balance, 100));
+  showBetHint('');
+  renderAll();
+});
 
 // ---------------- Language / mute ----------------
 function applyLang(){
   document.documentElement.lang = (lang==='zh') ? 'zh-Hant' : 'en';
   document.querySelectorAll('[data-i18n]').forEach(elm=>{ elm.textContent = t(elm.dataset.i18n); });
+  document.querySelectorAll('[data-i18n-ph]').forEach(elm=>{ elm.placeholder = t(elm.dataset.i18nPh); });
   document.getElementById('langBtn').textContent = t('langBtn');
   renderAll();
 }
@@ -718,11 +881,43 @@ muteBtn.addEventListener('click', ()=>{
   saveState();
 });
 
+// ---------------- Balance editor ----------------
+function flashBalance(){
+  const el = document.getElementById('balance');
+  el.style.transition = 'none'; el.style.color = '#fff';
+  requestAnimationFrame(()=>{ el.style.transition = 'color .6s'; el.style.color = 'var(--gold)'; });
+}
+document.getElementById('setBalanceBtn').addEventListener('click', ()=>{
+  if(phase === 'fighting' && !gameOver) return;
+  const input = document.getElementById('balanceInput');
+  const raw = input.value.trim();
+  const val = Math.floor(Number(raw));
+  if(raw === '' || !Number.isFinite(val) || val < 0) return;
+  balance = val;
+  input.value = '';
+  flashBalance();
+  saveState();
+  renderAll();
+});
+document.getElementById('addBalanceBtn').addEventListener('click', ()=>{
+  if(phase === 'fighting' && !gameOver) return;
+  const input = document.getElementById('balanceInput');
+  const raw = input.value.trim();
+  const val = Math.floor(Number(raw));
+  if(raw === '' || !Number.isFinite(val) || val <= 0) return;
+  balance += val;
+  input.value = '';
+  flashBalance();
+  saveState();
+  renderAll();
+});
+
 // ---------------- Startup ----------------
 loadState();
 renderMuteBtn();
+phase = 'betting';
+document.getElementById('betInput').value = Math.max(10, Math.min(balance, 100));
 applyLang();
-startMatch();
 </script>
 </body>
 </html>
