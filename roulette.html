@@ -900,17 +900,29 @@ function buildOverlay(){
 // account for this via the grid's actual on-screen size, so hotspots stay
 // aligned automatically; buildOverlay() just needs to re-run after the scale
 // changes to pick up the new gridScale.
+// Table's fixed layout, in its own CSS px, computed analytically rather than
+// measured from the DOM: .table-wrap is a plain block, so its offsetWidth/
+// scrollWidth just report whatever width its container happens to give it on
+// some browsers (observed on mobile Safari) instead of the content's real
+// intrinsic size — an unreliable foundation to scale from. The grid's column
+// tracks are fixed px values we author ourselves, so the true width is just
+// arithmetic: 1 zero column + 12 number columns + 1 "2 to 1" column, all
+// 46px, plus the "2 to 1" column's extra 4px, the grid's own gaps, and the
+// table-wrap's padding/border.
+const GRID_COLS = 14, GRID_COL_PX = 46, GRID_LAST_COL_EXTRA = 4, GRID_GAP = 2;
+const TABLE_WRAP_PAD = 14, TABLE_WRAP_BORDER = 6;
+const TABLE_NATURAL_WIDTH =
+  GRID_COLS*GRID_COL_PX + GRID_LAST_COL_EXTRA + (GRID_COLS-1)*GRID_GAP
+  + 2*(TABLE_WRAP_PAD + TABLE_WRAP_BORDER);
+
 function fitTable(){
   const shell = document.getElementById('tableShell');
   const wrap = document.getElementById('tableWrap');
   shell.style.width = '';
   shell.style.height = '';
   wrap.style.transform = 'none';
-  // .table-wrap is a plain block, so its own offsetWidth just matches
-  // whatever width its container gives it — scrollWidth is what actually
-  // reflects the grid's real (possibly overflowing) content size.
-  const naturalWidth = wrap.scrollWidth;
-  const naturalHeight = wrap.scrollHeight;
+  const naturalWidth = Math.max(TABLE_NATURAL_WIDTH, wrap.scrollWidth);
+  const naturalHeight = wrap.scrollHeight || wrap.offsetHeight;
   const available = shell.clientWidth;
   const scale = (available > 0 && naturalWidth > 0) ? Math.min(1, available / naturalWidth) : 1;
   if(scale < 0.999){
@@ -921,6 +933,10 @@ function fitTable(){
   buildOverlay();
 }
 window.addEventListener('resize', fitTable);
+window.addEventListener('orientationchange', fitTable);
+// Fonts/layout can still settle a frame late on some mobile browsers, so
+// re-fit once more just after first paint to catch any resulting drift.
+window.addEventListener('load', ()=> setTimeout(fitTable, 60));
 
 // dozens (1st/2nd/3rd 12) — each spans the same 4 number-columns as its
 // 12 numbers (grid-row 4), so it can never drift out of alignment with them.
