@@ -103,14 +103,25 @@
   .fighter.active .avatar{ box-shadow:0 0 0 3px var(--gold); }
 
   .gun-wrap{ position:relative; width:220px; height:90px; display:flex; align-items:center; justify-content:center; }
-  .gun{ font-size:52px; transition:transform .25s ease; filter:drop-shadow(0 4px 6px rgba(0,0,0,.6)); }
-  .gun.aim-self{ transform:scaleX(-1) rotate(-18deg); }
-  .gun.aim-oppo{ transform:rotate(-18deg); }
-  .gun.fire{ animation:recoil .28s ease; }
+  /* The outer element's flip/tilt is keyed to the TARGET's side of the
+     screen (player is always on the left, AI always on the right), not to
+     who's shooting — so the barrel points the same physical direction every
+     time a given side is the target, whether the player or the AI pulled
+     the trigger. Recoil animates on a separate inner element so it composes
+     with the flip instead of overwriting it. */
+  .gun-aim{
+    width:70px; height:40px; transition:transform .25s ease;
+    filter:drop-shadow(0 4px 6px rgba(0,0,0,.6));
+  }
+  .gun-aim.aim-ai{ transform:rotate(-18deg); }
+  .gun-aim.aim-player{ transform:scaleX(-1) rotate(-18deg); }
+  .gun-fire{ width:100%; height:100%; }
+  .gun-fire.fire{ animation:recoil .28s ease; }
+  .gun-svg{ width:100%; height:100%; display:block; }
   @keyframes recoil{
-    0%{ transform:scale(1); }
-    30%{ transform:scale(1.18) rotate(4deg); }
-    100%{ transform:scale(1); }
+    0%{ transform:scale(1) translateX(0); }
+    30%{ transform:scale(1.1) translateX(-6px); }
+    100%{ transform:scale(1) translateX(0); }
   }
   .muzzle-flash{
     position:absolute; font-size:34px; opacity:0; pointer-events:none;
@@ -221,17 +232,36 @@
 
     <div class="combatants" id="combatants" style="display:none;">
       <div class="fighter" id="playerFighter">
-        <div class="avatar" id="playerAvatar">🧑</div>
+        <div class="avatar" id="playerAvatar">🙂</div>
         <div class="name" data-i18n="you">你</div>
         <div class="hp-hearts" id="playerHearts"></div>
         <div class="pot-value" id="playerPotValue"></div>
       </div>
       <div class="gun-wrap">
         <div class="muzzle-flash" id="muzzleFlash">💥</div>
-        <div class="gun" id="gunEl">🔫</div>
+        <div class="gun-aim" id="gunAim">
+          <div class="gun-fire" id="gunFire">
+            <svg class="gun-svg" id="gunSvg" viewBox="0 0 100 50" xmlns="http://www.w3.org/2000/svg">
+              <defs>
+                <linearGradient id="steelGrad" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0" stop-color="#5a5c60"/>
+                  <stop offset="0.5" stop-color="#2c2d30"/>
+                  <stop offset="1" stop-color="#131315"/>
+                </linearGradient>
+              </defs>
+              <rect x="38" y="19" width="54" height="7" rx="1.5" fill="url(#steelGrad)"/>
+              <rect x="90" y="18" width="4" height="9" fill="#0c0c0d"/>
+              <rect x="20" y="12" width="48" height="15" rx="2.5" fill="url(#steelGrad)"/>
+              <circle cx="60" cy="19.5" r="2.4" fill="#0c0c0d"/>
+              <path d="M24 27 L15 47 L30 47 L34 27 Z" fill="#1a1a1c"/>
+              <path d="M32 27 q-2 9 7 11 q9 2 11 -7" fill="none" stroke="#131315" stroke-width="3.2" stroke-linecap="round"/>
+              <rect x="37" y="28" width="2.6" height="7" rx="1" fill="#0c0c0d"/>
+            </svg>
+          </div>
+        </div>
       </div>
       <div class="fighter" id="aiFighter">
-        <div class="avatar" id="aiAvatar">😈</div>
+        <div class="avatar" id="aiAvatar">💀</div>
         <div class="name" data-i18n="dealer">莊家 AI</div>
         <div class="hp-hearts" id="aiHearts"></div>
         <div class="pot-value" id="aiPotValue"></div>
@@ -586,14 +616,19 @@ function flashAvatar(side){
   el.classList.remove('hit'); void el.offsetWidth; el.classList.add('hit');
 }
 
-function animateGun(aim, cb){
-  const gun = document.getElementById('gunEl');
+// `target` is 'player' or 'ai' — the barrel always points at whoever is
+// actually being shot, regardless of whether the player or the AI is
+// pulling the trigger, so the same target always gets the same direction.
+function animateGun(target, cb){
+  const aimEl = document.getElementById('gunAim');
+  const fireEl = document.getElementById('gunFire');
   const flash = document.getElementById('muzzleFlash');
-  gun.className = 'gun ' + (aim==='self' ? 'aim-self' : 'aim-oppo');
-  void gun.offsetWidth;
-  gun.classList.add('fire');
+  aimEl.className = 'gun-aim ' + (target==='player' ? 'aim-player' : 'aim-ai');
+  fireEl.classList.remove('fire');
+  void fireEl.offsetWidth;
+  fireEl.classList.add('fire');
   flash.classList.remove('show'); void flash.offsetWidth; flash.classList.add('show');
-  setTimeout(()=>{ gun.classList.remove('fire'); if(cb) cb(); }, 300);
+  setTimeout(()=>{ fireEl.classList.remove('fire'); if(cb) cb(); }, 300);
 }
 
 // ---------------- Items ----------------
@@ -649,7 +684,7 @@ function fireAt(target, shooter){
   const dmg = knifeArmed[shooter] ? dmgBase*2 : dmgBase;
   knifeArmed[shooter] = false;
 
-  animateGun(target === shooter ? 'self' : 'oppo', ()=>{
+  animateGun(target, ()=>{
     if(shell === 'live'){
       sfx.blast();
       flashAvatar(target);
