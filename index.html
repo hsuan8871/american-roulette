@@ -80,6 +80,11 @@
     background:radial-gradient(circle at 45% 35%, rgba(255,255,255,.12), rgba(0,0,0,.25) 75%);
     border:1px solid rgba(255,255,255,.12);
   }
+  .gun-icon{
+    width:65%; max-width:210px;
+    filter:drop-shadow(0 6px 10px rgba(0,0,0,.5));
+    transform:rotate(-14deg);
+  }
   .game-title{
     font-size:22px;
     font-weight:bold;
@@ -208,7 +213,24 @@
   </div>
 
   <div class="game-card">
-    <div class="game-visual">🔫</div>
+    <div class="game-visual">
+      <svg class="gun-icon" viewBox="0 0 100 50" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <linearGradient id="lobbySteel" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0" stop-color="#8a8d92"/>
+            <stop offset="0.5" stop-color="#4a4c50"/>
+            <stop offset="1" stop-color="#1f2022"/>
+          </linearGradient>
+        </defs>
+        <rect x="38" y="19" width="54" height="7" rx="1.5" fill="url(#lobbySteel)"/>
+        <rect x="90" y="18" width="4" height="9" fill="#0c0c0d"/>
+        <rect x="20" y="12" width="48" height="15" rx="2.5" fill="url(#lobbySteel)"/>
+        <circle cx="60" cy="19.5" r="2.4" fill="#0c0c0d"/>
+        <path d="M24 27 L15 47 L30 47 L34 27 Z" fill="#2a2a2c"/>
+        <path d="M32 27 q-2 9 7 11 q9 2 11 -7" fill="none" stroke="#1a1a1c" stroke-width="3.2" stroke-linecap="round"/>
+        <rect x="37" y="28" width="2.6" height="7" rx="1" fill="#0c0c0d"/>
+      </svg>
+    </div>
     <div class="game-title">Devil Roulette</div>
     <div class="game-sub" data-i18n="buckshotSub">惡魔輪盤・散彈槍對決・道具與心理戰</div>
     <a class="play-btn" href="buckshot.html" data-i18n="playNow">▶ 開始遊戲</a>

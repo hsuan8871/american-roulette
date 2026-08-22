@@ -95,6 +95,7 @@
     transition:transform .15s, box-shadow .15s;
   }
   .fighter .avatar.hit{ animation:hitflash .5s ease; }
+  .avatar-icon{ width:58%; height:58%; }
   @keyframes hitflash{
     0%{ box-shadow:0 0 0 0 rgba(200,20,30,.9); }
     100%{ box-shadow:0 0 0 22px rgba(200,20,30,0); }
@@ -232,7 +233,23 @@
 
     <div class="combatants" id="combatants" style="display:none;">
       <div class="fighter" id="playerFighter">
-        <div class="avatar" id="playerAvatar">🙂</div>
+        <div class="avatar" id="playerAvatar">
+          <svg class="avatar-icon" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+            <defs>
+              <linearGradient id="skinGrad" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0" stop-color="#f0c99a"/>
+                <stop offset="1" stop-color="#dba876"/>
+              </linearGradient>
+              <linearGradient id="shirtGrad" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0" stop-color="#5b7a92"/>
+                <stop offset="1" stop-color="#3c5266"/>
+              </linearGradient>
+            </defs>
+            <path d="M10 94 Q10 56 50 56 Q90 56 90 94 Z" fill="url(#shirtGrad)"/>
+            <circle cx="50" cy="34" r="24" fill="url(#skinGrad)"/>
+            <path d="M26 30 Q26 10 50 10 Q74 10 74 30 L70 26 Q50 16 30 26 Z" fill="#3a2c22"/>
+          </svg>
+        </div>
         <div class="name" data-i18n="you">你</div>
         <div class="hp-hearts" id="playerHearts"></div>
         <div class="pot-value" id="playerPotValue"></div>
@@ -261,7 +278,25 @@
         </div>
       </div>
       <div class="fighter" id="aiFighter">
-        <div class="avatar" id="aiAvatar">💀</div>
+        <div class="avatar" id="aiAvatar">
+          <svg class="avatar-icon" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+            <defs>
+              <linearGradient id="boneGrad" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0" stop-color="#fbf6ea"/>
+                <stop offset="1" stop-color="#d9cfb8"/>
+              </linearGradient>
+            </defs>
+            <path d="M50 8 C25 8 13 27 13 46 C13 59 19 68 25 74 L25 87 C25 91 28 94 32 94 L37 94 L37 85 L41 85 L41 94
+                     L59 94 L59 85 L63 85 L63 94 L68 94 C72 94 75 91 75 87 L75 74 C81 68 87 59 87 46 C87 27 75 8 50 8 Z"
+                  fill="url(#boneGrad)" stroke="rgba(0,0,0,.25)" stroke-width="1"/>
+            <ellipse cx="34" cy="45" rx="9.5" ry="11" fill="#170b0b"/>
+            <ellipse cx="66" cy="45" rx="9.5" ry="11" fill="#170b0b"/>
+            <path d="M50 52 L44 66 L56 66 Z" fill="#170b0b"/>
+            <rect x="39" y="72" width="4.5" height="9" rx="1" fill="#170b0b"/>
+            <rect x="48" y="72" width="4.5" height="9" rx="1" fill="#170b0b"/>
+            <rect x="57" y="72" width="4.5" height="9" rx="1" fill="#170b0b"/>
+          </svg>
+        </div>
         <div class="name" data-i18n="dealer">莊家 AI</div>
         <div class="hp-hearts" id="aiHearts"></div>
         <div class="pot-value" id="aiPotValue"></div>
