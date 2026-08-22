@@ -4,11 +4,11 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Casino Lobby</title>
-<meta name="description" content="Pick a table: American Roulette, Baccarat, or Blackjack. All single-file, no-backend browser games with full betting tables and house rules shown alongside.">
+<meta name="description" content="Pick a table: American Roulette, Baccarat, Blackjack, or Devil Roulette. All single-file, no-backend browser games with full rules shown alongside.">
 <meta name="theme-color" content="#0b3d1e">
 <meta property="og:type" content="website">
 <meta property="og:title" content="Casino Lobby">
-<meta property="og:description" content="American Roulette, Baccarat, and Blackjack — pick a table.">
+<meta property="og:description" content="American Roulette, Baccarat, Blackjack, and Devil Roulette — pick a table.">
 <meta property="og:url" content="https://hsuan8871.github.io/casino-game/">
 <meta property="og:image" content="https://hsuan8871.github.io/casino-game/preview.png">
 <meta property="og:image:width" content="1200">
@@ -207,6 +207,22 @@
     </div>
   </div>
 
+  <div class="game-card">
+    <div class="game-visual">🔫</div>
+    <div class="game-title">Devil Roulette</div>
+    <div class="game-sub" data-i18n="buckshotSub">惡魔輪盤・散彈槍對決・道具與心理戰</div>
+    <a class="play-btn" href="buckshot.html" data-i18n="playNow">▶ 開始遊戲</a>
+    <div class="rules">
+      <h3 data-i18n="rulesTitle">遊戲規則</h3>
+      <div data-i18n="buckshotRules1">散彈槍裡隨機裝入實彈與空包彈,數量公開、順序保密。你和 AI 輪流選擇「射擊對方」或「射擊自己」。</div>
+      <ul>
+        <li data-i18n="buckshotRule2">對自己開槍若是空包彈可以再行動一次;若是實彈則受傷並換人。對對方開槍不論結果都會換人</li>
+        <li data-i18n="buckshotRule3">道具:🔍 放大鏡看下一發、🔪 小刀讓下一發傷害加倍、🚬 香菸回 1 點血、🥤 飲料退掉膛室裡那一發</li>
+        <li data-i18n="buckshotRule4">子彈打光會重新裝彈並補發道具,血量不會恢復,直到某一方倒下</li>
+      </ul>
+    </div>
+  </div>
+
 </div>
 
 <footer data-i18n="lobbyFooter">
@@ -249,7 +265,12 @@ const I18N = {
     blackjackRule3:'莊家「停於 17」:點數達到 17(含軟 17)就必須停牌',
     blackjackRule4:'「加倍」只能在前兩張牌時使用:下注金額翻倍,只再拿一張牌後強制停牌',
     blackjackBet1:'Blackjack(天生 21 點)', blackjackBet2:'一般獲勝', blackjackBet3:'平手(Push)', blackjackPush:'退回本金',
-    lobbyFooter:'三款遊戲都純前端運作,不會把你的餘額或下注資料傳到任何伺服器——所有數值都只存在你目前的瀏覽器分頁裡。',
+    buckshotSub:'惡魔輪盤・散彈槍對決・道具與心理戰',
+    buckshotRules1:'散彈槍裡隨機裝入實彈與空包彈,數量公開、順序保密。你和 AI 輪流選擇「射擊對方」或「射擊自己」。',
+    buckshotRule2:'對自己開槍若是空包彈可以再行動一次;若是實彈則受傷並換人。對對方開槍不論結果都會換人',
+    buckshotRule3:'道具:🔍 放大鏡看下一發、🔪 小刀讓下一發傷害加倍、🚬 香菸回 1 點血、🥤 飲料退掉膛室裡那一發',
+    buckshotRule4:'子彈打光會重新裝彈並補發道具,血量不會恢復,直到某一方倒下',
+    lobbyFooter:'四款遊戲都純前端運作,不會把你的餘額或下注資料傳到任何伺服器——所有數值都只存在你目前的瀏覽器分頁裡。',
     langBtn:'English'
   },
   en: {
@@ -276,7 +297,12 @@ const I18N = {
     blackjackRule3:'The dealer stands on all 17s (including soft 17)',
     blackjackRule4:'"Double Down" only on your first two cards: doubles your bet, deals exactly one more card, then stands automatically',
     blackjackBet1:'Blackjack (natural 21)', blackjackBet2:'Regular win', blackjackBet3:'Push (tie)', blackjackPush:'Bet returned',
-    lobbyFooter:'All three games run entirely client-side — your balance and bets are never sent to any server; everything lives only in this browser tab.',
+    buckshotSub:'Devil Roulette ・ shotgun duel ・ items & mind games',
+    buckshotRules1:'The shotgun is loaded with a random mix of live and blank shells — the count is public, the order is not. You and the AI take turns choosing to shoot the opponent or yourself.',
+    buckshotRule2:'Shooting yourself with a blank grants another turn; a live shell damages you and passes the turn. Shooting the opponent always passes the turn regardless of the result',
+    buckshotRule3:'Items: 🔍 magnifier reveals the next shell, 🔪 knife doubles your next shot\'s damage, 🚬 cigarette heals 1 HP, 🥤 drink ejects the chambered shell without firing',
+    buckshotRule4:'When shells run out the gun reloads and both sides get new items — HP does not recover until someone goes down',
+    lobbyFooter:'All four games run entirely client-side — your balance and bets are never sent to any server; everything lives only in this browser tab.',
     langBtn:'中文'
   }
 };
