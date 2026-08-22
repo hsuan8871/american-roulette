@@ -93,7 +93,6 @@
   /* Rotor: pockets, frets, cone, turret — this is what spins. */
   .wheel{
     position:absolute; inset:0;
-    transition: transform 4.2s cubic-bezier(.17,.67,.16,1);
   }
   /* Static specular sheen layered over everything so the highlight
      stays put while the rotor turns underneath it. */
@@ -392,8 +391,42 @@
     padding:0; margin:-1px; overflow:hidden;
     clip:rect(0,0,0,0); white-space:nowrap; border:0;
   }
+  /* ---------- Win effects ---------- */
+  .win-badge{
+    position:absolute; left:50%; top:-52px;
+    transform:translateX(-50%) scale(.4);
+    padding:6px 14px; border-radius:20px;
+    font-weight:bold; font-size:20px; color:#fff;
+    box-shadow:0 6px 16px rgba(0,0,0,.5);
+    opacity:0; pointer-events:none; z-index:15;
+    animation: winPop 1.6s ease forwards;
+  }
+  @keyframes winPop{
+    0%{ opacity:0; transform:translateX(-50%) scale(.3) translateY(10px); }
+    15%{ opacity:1; transform:translateX(-50%) scale(1.25) translateY(-6px); }
+    30%{ transform:translateX(-50%) scale(1) translateY(0); }
+    75%{ opacity:1; }
+    100%{ opacity:0; transform:translateX(-50%) scale(.9) translateY(-14px); }
+  }
+  .ball.landed{ animation: ballGlow 1.4s ease-out 1; }
+  @keyframes ballGlow{
+    0%{ box-shadow:0 0 0 0 rgba(232,193,101,.9), 0 3px 5px rgba(0,0,0,.65),
+        inset -1px -2px 3px rgba(0,0,0,.35), inset 1px 1px 2px rgba(255,255,255,.9); }
+    100%{ box-shadow:0 0 0 18px rgba(232,193,101,0), 0 3px 5px rgba(0,0,0,.65),
+        inset -1px -2px 3px rgba(0,0,0,.35), inset 1px 1px 2px rgba(255,255,255,.9); }
+  }
+  .pocket-flash{ animation: pocketPulse 1.4s ease-out 1; }
+  @keyframes pocketPulse{
+    0%{ filter:brightness(1) drop-shadow(0 0 0 rgba(255,255,255,0)); }
+    25%{ filter:brightness(2.2) drop-shadow(0 0 10px rgba(255,255,255,.9)); }
+    100%{ filter:brightness(1) drop-shadow(0 0 0 rgba(255,255,255,0)); }
+  }
+  .mode-label{
+    font-size:12.5px; color:#c8d6cb; text-align:center;
+    margin:-10px 0 14px;
+  }
   @media (prefers-reduced-motion: reduce){
-    .wheel{ transition-duration:.01ms !important; }
+    .win-badge, .ball.landed, .pocket-flash{ animation:none !important; }
   }
   /* ---------- Responsive ---------- */
   /* The table is a fixed-width grid, so below its natural width it scrolls
@@ -438,9 +471,11 @@
 <body>
 
 <a href="index.html" class="lobby-link" data-i18n="backToLobby">← 選擇遊戲</a>
-<h1>🎡 AMERICAN ROULETTE</h1>
+<h1 id="titleH1">🎡 AMERICAN ROULETTE</h1>
+<div class="mode-label" id="modeLabel"></div>
 
 <div class="stats">
+  <button class="action secondary small" id="modeBtn"></button>
   <div><span data-i18n="balance">餘額</span> $<b id="balance">1000</b></div>
   <div><span data-i18n="betLabel">本輪下注</span> $<b id="totalBet">0</b></div>
   <div><span data-i18n="lastLabel">上局結果</span> <b id="lastResult">-</b></div>
@@ -515,6 +550,12 @@ const I18N = {
     hintRemove:'💡 每個下注點最低 $5 才能開轉;右鍵點擊下注點可移除一個籌碼(鍵盤:選取後按 Backspace)',
     langBtn:'English',
     backToLobby:'← 選擇遊戲',
+    titleAmerican:'🎡 美式輪盤',
+    titleEuropean:'🎡 歐式輪盤',
+    modeToEuro:'切換成歐式輪盤',
+    modeToAmerican:'切換成美式輪盤',
+    modeLabelAmerican:'美式輪盤・0 與 00・房邊 5.26%',
+    modeLabelEuropean:'歐式輪盤・單一 0・房邊 2.70%',
 
     msgWelcome:'選擇籌碼並在桌上下注,然後按 SPIN！',
     msgNoFunds:'餘額不足！',
@@ -569,6 +610,12 @@ const I18N = {
     hintRemove:'💡 $5 minimum per spot to spin; right-click a betting spot to take one chip back (keyboard: focus it and press Backspace)',
     langBtn:'中文',
     backToLobby:'← Choose a Game',
+    titleAmerican:'🎡 American Roulette',
+    titleEuropean:'🎡 European Roulette',
+    modeToEuro:'Switch to European',
+    modeToAmerican:'Switch to American',
+    modeLabelAmerican:'American ・ 0 and 00 ・ 5.26% house edge',
+    modeLabelEuropean:'European ・ single 0 ・ 2.70% house edge',
 
     msgWelcome:'Pick a chip, place your bets, then hit SPIN!',
     msgNoFunds:'Not enough balance!',
@@ -638,7 +685,14 @@ function applyLang(){
   document.getElementById('langBtn').textContent = t('langBtn');
   document.getElementById('message').textContent = t(...currentMsg);
   renderLastResult();
+  renderModeUI();
   updateOdds();
+}
+
+function renderModeUI(){
+  document.getElementById('titleH1').textContent = t(euroMode ? 'titleEuropean' : 'titleAmerican');
+  document.getElementById('modeLabel').textContent = t(euroMode ? 'modeLabelEuropean' : 'modeLabelAmerican');
+  document.getElementById('modeBtn').textContent = t(euroMode ? 'modeToAmerican' : 'modeToEuro');
 }
 
 function renderLastResult(){
@@ -656,8 +710,13 @@ function colorOf(n){
 }
 
 // American wheel physical order (0 and 00 opposite each other)
-const WHEEL_ORDER = ['0',28,9,26,30,11,7,20,32,17,5,22,34,15,3,24,36,13,1,'00',
+const AMERICAN_ORDER = ['0',28,9,26,30,11,7,20,32,17,5,22,34,15,3,24,36,13,1,'00',
                       27,10,25,29,12,8,19,31,18,6,21,33,16,4,23,35,14,2];
+// European wheel physical order (single 0)
+const EUROPEAN_ORDER = ['0',32,15,19,4,21,2,25,17,34,6,27,13,36,11,30,8,23,10,
+                      5,24,16,33,1,20,14,31,9,22,18,29,7,28,12,35,3,26];
+let euroMode = false;
+let WHEEL_ORDER = AMERICAN_ORDER;
 
 let balance = 1000;
 let selectedChip = 5;
@@ -827,29 +886,39 @@ function buildOverlay(){
     const nums = [numAt(0,col),numAt(1,col),numAt(2,col),numAt(0,col+1),numAt(1,col+1),numAt(2,col+1)];
     addHotspot(x, y, 'sixline_'+col, 'Six Line '+nums.join('-'), nums.map(String));
   }
-  // split between 0 and 00
-  {
+  if(euroMode){
+    // single 0, adjacent to 1, 2 and 3 (spans both zero columns)
     const rz = rectOf(zeroEl, gridRect);
-    const x = rz.left + rz.width;
-    const y = rz.top + rz.height/2;
-    addHotspot(x, y, 'split_0_00', 'Split 0-00', ['0','00']);
-  }
-  // split 0-1 / 0-2 (0 touches top half of column 0)
-  {
-    const rz = rectOf(zeroEl, gridRect);
-    const r0 = rectOf(cellRefs[0][0], gridRect); // number 3, top row - not adjacent to 0; use row1(mid=2) and row2(bottom=1)
-    const rMid = rectOf(cellRefs[1][0], gridRect); // number 2
-    const rBot = rectOf(cellRefs[2][0], gridRect); // number 1
-    addHotspot(rz.left+rz.width, rMid.top, 'split_0_2', 'Split 0-2', ['0','2']);
-    addHotspot(rz.left+rz.width, rBot.top, 'split_0_1', 'Split 0-1', ['0','1']);
-  }
-  // split 00-2 / 00-3
-  {
-    const rzz = rectOf(doubleZeroEl, gridRect);
     const rTop = rectOf(cellRefs[0][0], gridRect); // number 3
     const rMid = rectOf(cellRefs[1][0], gridRect); // number 2
-    addHotspot(rzz.left+rzz.width, rMid.top, 'split_00_2', 'Split 00-2', ['00','2']);
-    addHotspot(rzz.left+rzz.width, rTop.top, 'split_00_3', 'Split 00-3', ['00','3']);
+    const rBot = rectOf(cellRefs[2][0], gridRect); // number 1
+    addHotspot(rz.left+rz.width, rTop.top, 'split_0_3', 'Split 0-3', ['0','3']);
+    addHotspot(rz.left+rz.width, rMid.top, 'split_0_2', 'Split 0-2', ['0','2']);
+    addHotspot(rz.left+rz.width, rBot.top, 'split_0_1', 'Split 0-1', ['0','1']);
+  } else {
+    // split between 0 and 00
+    {
+      const rz = rectOf(zeroEl, gridRect);
+      const x = rz.left + rz.width;
+      const y = rz.top + rz.height/2;
+      addHotspot(x, y, 'split_0_00', 'Split 0-00', ['0','00']);
+    }
+    // split 0-1 / 0-2 (0 touches top half of column 0)
+    {
+      const rz = rectOf(zeroEl, gridRect);
+      const rMid = rectOf(cellRefs[1][0], gridRect); // number 2
+      const rBot = rectOf(cellRefs[2][0], gridRect); // number 1
+      addHotspot(rz.left+rz.width, rMid.top, 'split_0_2', 'Split 0-2', ['0','2']);
+      addHotspot(rz.left+rz.width, rBot.top, 'split_0_1', 'Split 0-1', ['0','1']);
+    }
+    // split 00-2 / 00-3
+    {
+      const rzz = rectOf(doubleZeroEl, gridRect);
+      const rTop = rectOf(cellRefs[0][0], gridRect); // number 3
+      const rMid = rectOf(cellRefs[1][0], gridRect); // number 2
+      addHotspot(rzz.left+rzz.width, rMid.top, 'split_00_2', 'Split 00-2', ['00','2']);
+      addHotspot(rzz.left+rzz.width, rTop.top, 'split_00_3', 'Split 00-3', ['00','3']);
+    }
   }
 }
 buildOverlay();
@@ -1215,7 +1284,8 @@ function setMessage(key, ...args){
 const wheelEl = document.getElementById('wheel');
 const frameEl = document.getElementById('wheelFrame');
 const glossEl = document.getElementById('wheelGloss');
-const N = WHEEL_ORDER.length;
+let N = WHEEL_ORDER.length;
+let pocketPaths = [];
 
 // All three wheel layers share one 340x340 coordinate space centred on (170,170),
 // so the rotor lines up with the static bowl drawn beneath it.
@@ -1333,6 +1403,7 @@ function buildWheel(){
   const anglePer = 360/N;
 
   // number pockets
+  pocketPaths = [];
   for(let i=0;i<N;i++){
     const num = WHEEL_ORDER[i];
     const a0 = i*anglePer - 90 - anglePer/2;
@@ -1340,7 +1411,9 @@ function buildWheel(){
     let fill = '#141414';
     if(num==='0' || num==='00') fill = '#0c6b30';
     else if(RED_NUMBERS.has(num)) fill = '#c81f33';
-    svg.appendChild(el('path',{d:sectorPath(R_POCKET_OUT,R_POCKET_IN,a0,a1),fill}));
+    const p = el('path',{d:sectorPath(R_POCKET_OUT,R_POCKET_IN,a0,a1),fill});
+    svg.appendChild(p);
+    pocketPaths.push(p);
   }
 
   // recessed shading over the whole ring (cone is drawn on top of the middle)
@@ -1498,7 +1571,7 @@ const STORE_KEY = 'american-roulette-v1';
 function saveState(){
   try{
     localStorage.setItem(STORE_KEY, JSON.stringify({
-      balance, lang, muted, history, lastBets, lastResultData
+      balance, lang, muted, history, lastBets, lastResultData, euroMode
     }));
   }catch(e){ /* storage blocked (private mode, quota) — game still runs */ }
 }
@@ -1514,6 +1587,11 @@ function loadState(){
     if(Array.isArray(s.history)) history = s.history.slice(0, 20);
     if(s.lastBets && typeof s.lastBets === 'object' && !Array.isArray(s.lastBets)) lastBets = s.lastBets;
     if(s.lastResultData && typeof s.lastResultData === 'object') lastResultData = s.lastResultData;
+    if(typeof s.euroMode === 'boolean'){
+      euroMode = s.euroMode;
+      WHEEL_ORDER = euroMode ? EUROPEAN_ORDER : AMERICAN_ORDER;
+      N = WHEEL_ORDER.length;
+    }
   }catch(e){ /* corrupt payload — fall back to a fresh game */ }
 }
 
@@ -1526,15 +1604,26 @@ function loadState(){
 // on load removes that false impression without touching the RNG itself.
 function mod(a,m){ return ((a%m)+m)%m; }
 
-let wheelRotation = Math.random() * 360;
-let ballRotation = wheelRotation;
+// The wheel never fully stops: `wheelAngle` is advanced every animation frame
+// by wheelLoop() below, whether idling between spins or actively spinning.
+// A `spinPhase` object drives an eased sweep during a spin; once it finishes
+// the loop just keeps incrementing wheelAngle at the slow idle speed from
+// wherever it landed, so the rotor keeps drifting instead of freezing.
+let wheelAngle = Math.random() * 360;
+let ballRotation = wheelAngle;
 const SPIN_MS = 4200;
-
 // Distance from the wheel centre to the ball's resting spot, in wheel units:
 // 143.5 = on the outer ball track, 110 = seated in the pocket ring.
 const BALL_TRACK_D = 143.5, BALL_POCKET_D = 110;
 const reduceMotion = window.matchMedia
   && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+const IDLE_SPEED = reduceMotion ? 0 : 6; // degrees per second
+let spinPhase = null; // {startAngle, sweep, startTime, duration} while a spin is animating
+// Once the ball lands, it rides glued to its pocket at this fixed offset from
+// the wheel, so it keeps drifting along with the (still-turning) wheel instead
+// of sitting still while the rotor moves underneath it.
+let landedOffset = 0;
+let ballAttached = false;
 
 function setBallTransform(angle, inward){
   document.getElementById('ball').style.transform =
@@ -1570,6 +1659,60 @@ function animateBall(fromAngle, toAngle, duration){
   requestAnimationFrame(frame);
 }
 
+// Runs forever from page load: the wheel is always turning, either idling at
+// IDLE_SPEED or sweeping through an active spin — it never has a static,
+// motionless frame. The ball rides glued to the wheel (via landedOffset)
+// whenever it isn't in the middle of its own independent flight animation.
+let lastFrameTime = null;
+function wheelLoop(now){
+  if(lastFrameTime === null) lastFrameTime = now;
+  const dt = (now - lastFrameTime) / 1000;
+  lastFrameTime = now;
+
+  if(spinPhase){
+    const x = Math.min(1, (now - spinPhase.startTime) / spinPhase.duration);
+    const eased = 1 - Math.pow(1 - x, 3);
+    wheelAngle = spinPhase.startAngle + spinPhase.sweep * eased;
+    if(x >= 1) spinPhase = null; // sweep done — next frame just drifts at idle speed from here
+  } else {
+    wheelAngle += IDLE_SPEED * dt;
+  }
+  wheelEl.style.transform = `rotate(${mod(wheelAngle,360)}deg)`;
+
+  if(ballAttached){
+    setBallTransform(mod(wheelAngle + landedOffset, 360), BALL_TRACK_D - BALL_POCKET_D);
+  }
+
+  requestAnimationFrame(wheelLoop);
+}
+
+function showWinFx(num, col){
+  const stage = document.querySelector('.wheel-stage');
+  const badge = document.createElement('div');
+  badge.className = 'win-badge';
+  badge.style.background = col==='green' ? '#0d6b31' : (col==='red' ? '#d1263a' : '#1a1a1a');
+  badge.textContent = num;
+  stage.appendChild(badge);
+  setTimeout(()=> badge.remove(), 1650);
+}
+
+function flashPocket(idx){
+  const p = pocketPaths[idx];
+  if(!p) return;
+  p.classList.remove('pocket-flash');
+  void p.getBoundingClientRect();
+  p.classList.add('pocket-flash');
+  setTimeout(()=> p.classList.remove('pocket-flash'), 1450);
+}
+
+function flashBall(){
+  const ballEl = document.getElementById('ball');
+  ballEl.classList.remove('landed');
+  void ballEl.offsetWidth;
+  ballEl.classList.add('landed');
+  setTimeout(()=> ballEl.classList.remove('landed'), 1450);
+}
+
 function spin(){
   if(spinning) return;
   const total = totalBetAmount();
@@ -1592,18 +1735,22 @@ function spin(){
   const winNumber = WHEEL_ORDER[winIndex];
   const anglePer = 360/N;
 
-  // The wheel rotates by subtracting degrees over time, so its cumulative rotation
-  // drifts arbitrarily far from a multiple of 360. To make winIndex land exactly under
-  // the pointer (top, local slice-center angle = -90deg) we must land on an ABSOLUTE
-  // target angle (mod 360), not just subtract this spin's slice offset from whatever
-  // rotation happens to be left over from previous spins.
+  // The wheel keeps drifting between spins (wheelLoop), so its cumulative angle
+  // is never a clean multiple of 360. To make winIndex land exactly under the
+  // pointer (top, local slice-center angle = -90deg) the sweep is computed as a
+  // forward distance from wherever wheelAngle currently sits to that ABSOLUTE
+  // target angle (mod 360), plus a few extra full turns for effect.
   const desiredMod = mod(-winIndex*anglePer, 360);
   const extraSpins = 5 + Math.floor(Math.random()*3);
-  const base = wheelRotation - extraSpins*360;
-  const baseMod = mod(base, 360);
-  const newWheelRotation = base - mod(baseMod - desiredMod, 360);
-  wheelEl.style.transform = `rotate(${newWheelRotation}deg)`;
-  wheelRotation = newWheelRotation;
+  const currentMod = mod(wheelAngle, 360);
+  const forwardDelta = mod(desiredMod - currentMod, 360);
+  spinPhase = {
+    startAngle: wheelAngle,
+    sweep: extraSpins*360 + forwardDelta,
+    startTime: performance.now(),
+    duration: reduceMotion ? 1 : SPIN_MS
+  };
+  ballAttached = false;
 
   // The ball must finish at the TOP (angle 0), because that is where the winning
   // pocket ends up under the pointer. It travels counter to the rotor, then
@@ -1619,10 +1766,17 @@ function spin(){
 
   setMessage('msgSpinning');
 
-  setTimeout(()=> resolveSpin(winNumber, betsSnapshot, betsTotal), SPIN_MS);
+  setTimeout(()=> {
+    // The ball has just landed at the pointer (angle 0) — glue it to the wheel
+    // at its current angle so it keeps riding along in the winning pocket as
+    // the wheel continues its idle drift, instead of sitting frozen in place.
+    landedOffset = mod(0 - mod(wheelAngle, 360), 360);
+    ballAttached = true;
+    resolveSpin(winNumber, betsSnapshot, betsTotal, winIndex);
+  }, SPIN_MS);
 }
 
-function resolveSpin(winNumber, betsSnapshot, betsTotal){
+function resolveSpin(winNumber, betsSnapshot, betsTotal, winIndex){
   spinning = false;
   document.getElementById('spinBtn').disabled = false;
 
@@ -1640,6 +1794,10 @@ function resolveSpin(winNumber, betsSnapshot, betsTotal){
   renderLastResult();
 
   addHistory(winNumber, col);
+
+  showWinFx(winNumber, col);
+  flashPocket(winIndex);
+  flashBall();
 
   sfx.settle();
   if(winnings>0){
@@ -1739,30 +1897,57 @@ muteBtn.addEventListener('click', ()=>{
   saveState();
 });
 
+// Switches wheel type. Clears the current bets, since bet keys/hotspots from
+// one layout (e.g. a "00" straight-up) don't necessarily mean anything on the
+// other, then rebuilds the rotor and betting-grid overlay for the new N.
+function setEuroMode(flag){
+  if(spinning){ setMessage('msgSpinningLock'); return; }
+  euroMode = flag;
+  WHEEL_ORDER = euroMode ? EUROPEAN_ORDER : AMERICAN_ORDER;
+  N = WHEEL_ORDER.length;
+  clearBets();
+  doubleZeroEl.style.display = euroMode ? 'none' : '';
+  zeroEl.style.gridColumn = euroMode ? '1 / span 2' : '1';
+  buildWheel();
+  buildOverlay();
+  renderModeUI();
+  saveState();
+}
+document.getElementById('modeBtn').addEventListener('click', ()=> setEuroMode(!euroMode));
+
 buildFrame();
 buildWheel();
 buildGloss();
 
-loadState();                 // restore balance, language, mute, history, last bet
+loadState();                 // restore balance, language, mute, history, last bet, wheel type
+if(euroMode){
+  doubleZeroEl.style.display = 'none';
+  zeroEl.style.gridColumn = '1 / span 2';
+  buildWheel();
+  buildOverlay();
+}
 
 // Park the wheel showing the restored last result (if any) instead of a random
 // slice — otherwise reloading the page would visually contradict the "上局結果"
-// text it just restored right next to it.
+// text it just restored right next to it. The ball stays glued to that pocket
+// (ballAttached) so it keeps riding along as the wheel resumes its idle drift.
 if(lastResultData){
   const idx = WHEEL_ORDER.indexOf(lastResultData.num);
   if(idx >= 0){
     const restAngle = mod(-idx*(360/N), 360);
-    wheelRotation = restAngle;
-    ballRotation = restAngle;
+    wheelAngle = restAngle;
+    landedOffset = mod(0 - mod(wheelAngle,360), 360);
+    ballAttached = true;
   }
 }
-wheelEl.style.transform = `rotate(${wheelRotation}deg)`;
+wheelEl.style.transform = `rotate(${mod(wheelAngle,360)}deg)`;
+setBallTransform(mod(wheelAngle + landedOffset,360), ballAttached ? BALL_TRACK_D - BALL_POCKET_D : 0);
+requestAnimationFrame(wheelLoop);
 
 renderMuteBtn();
 renderHistory();
 renderBalance();
-setBallTransform(ballRotation, lastResultData ? BALL_TRACK_D - BALL_POCKET_D : 0);
-applyLang();   // also renders the welcome message and the odds panel
+applyLang();   // also renders the welcome message, mode UI, and the odds panel
 
 document.getElementById('spinBtn').addEventListener('click', spin);
 </script>
